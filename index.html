@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marathon Skills</title>
+  <link rel="icon" type="image/png" href="assets/app_icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div>
+        <div class="brand">
+          <img src="assets/logo_mark.png" alt="">
+          <div><strong>Marathon</strong><span>Skills</span></div>
+        </div>
+        <nav class="sidebar-nav">
+          <button type="button" data-page="home">Главная</button>
+          <button type="button" data-page="registration">Регистрация</button>
+          <button type="button" data-page="participants">Участники</button>
+        </nav>
+        <section class="sidebar-panel account-panel">
+          <span class="sidebar-label">Аккаунт</span>
+          <strong id="current-account">Вход не выполнен</strong>
+          <button type="button" class="sidebar-action" id="logout-button">Выйти из аккаунта</button>
+        </section>
+      </div>
+      <section class="sidebar-panel date-panel">
+        <span class="sidebar-label">Дата марафона</span>
+        <strong id="sidebar-date">15 июня 2026</strong>
+        <p>Таймер обратного отсчета находится внизу окна.</p>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <div class="page-area">
+        <section class="page active" id="page-home">
+          <article class="hero">
+            <img src="assets/marathon_photo.png" alt="Участники марафона">
+            <div class="hero-shade"></div>
+            <div class="hero-content">
+              <p class="hero-year" id="hero-year">Marathon Skills 2026</p>
+              <h1>Беги к своей цели</h1>
+              <p class="hero-copy" id="hero-info"></p>
+              <div class="hero-tags">
+                <span>Дистанции: 5, 10, 21 и 42 км</span>
+                <span>Дата: 15 июня</span>
+                <span>Регистрация и BMI в одном месте</span>
+              </div>
+              <div class="button-row">
+                <button type="button" class="button primary" data-page="registration">Зарегистрироваться</button>
+                <button type="button" class="button secondary" data-page="participants">Список участников</button>
+              </div>
+            </div>
+          </article>
+          <div class="info-grid">
+            <article class="info-card"><b>01</b><h2>О марафоне</h2><p>Marathon Skills проводится каждый год 15 июня. В приложении указан актуальный год события и таймер до старта.</p></article>
+            <article class="info-card"><b>02</b><h2>Регистрация</h2><p>Форма не дает ввести случайные символы, проверяет телефон, email, дату рождения, страну и город.</p></article>
+            <article class="info-card"><b>03</b><h2>BMI-система</h2><p>После ввода роста и веса программа показывает BMI, цветную шкалу и понятное состояние тела.</p></article>
+          </div>
+        </section>
+
+        <section class="page" id="page-registration">
+          <article class="content-card registration-card">
+            <h1>Регистрация бегуна</h1>
+            <p class="subtitle">Заполните карточку участника. После этого откроется расчет BMI.</p>
+            <form id="registration-form" class="form-grid" novalidate>
+              <div>
+                <label>Имя<input id="first-name" name="firstName" maxlength="32" autocomplete="given-name"></label>
+                <label>Фамилия<input id="last-name" name="lastName" maxlength="32" autocomplete="family-name"></label>
+                <label>Email<input id="email" name="email" maxlength="80" autocomplete="email"></label>
+                <label>Телефон<input id="phone" name="phone" maxlength="18" inputmode="tel" placeholder="+7 (777) 123-45-67" autocomplete="tel"></label>
+                <label>Фото участника</label>
+                <div class="photo-viewport" id="photo-viewport">
+                  <canvas id="photo-canvas" width="440" height="440"></canvas>
+                  <span id="photo-placeholder">Фото не выбрано</span>
+                </div>
+                <p class="photo-hint" id="photo-hint">Зажмите фото мышью и переместите его внутри рамки.</p>
+                <input type="file" id="photo-input" accept=".jpg,.jpeg,.png,image/jpeg,image/png" hidden>
+                <div class="button-row photo-actions">
+                  <button type="button" class="button secondary" id="choose-photo">Загрузить фото</button>
+                  <button type="button" class="button secondary" id="center-photo">По центру</button>
+                  <button type="button" class="button danger" id="clear-photo">Убрать</button>
+                </div>
+              </div>
+              <div>
+                <label>Пол<select id="gender" name="gender"><option>Мужской</option><option>Женский</option></select></label>
+                <label>Дата рождения<input id="birth-date" name="birthDate" type="date"></label>
+                <label>Дистанция<select id="distance" name="distance"><option>5 км</option><option>10 км</option><option>21 км</option><option>42 км</option></select></label>
+                <label>Страна<select id="country" name="country"></select></label>
+                <label>Город<input id="city" name="city" maxlength="48" autocomplete="address-level2"></label>
+                <div class="button-row form-actions">
+                  <button class="button primary" type="submit">Продолжить</button>
+                  <button class="button secondary" type="button" data-page="home">Назад</button>
+                </div>
+              </div>
+            </form>
+          </article>
+        </section>
+
+        <section class="page" id="page-bmi">
+          <article class="content-card bmi-card">
+            <h1>Расчет BMI</h1>
+            <p class="subtitle runner-name" id="current-runner">Участник</p>
+            <div class="form-grid bmi-inputs">
+              <label>Рост, см<input id="height" inputmode="decimal" maxlength="5"></label>
+              <label>Вес, кг<input id="weight" inputmode="decimal" maxlength="5"></label>
+            </div>
+            <section class="bmi-result">
+              <span>Результат</span>
+              <strong id="bmi-result">Введите рост и вес, затем нажмите «Рассчитать».</strong>
+            </section>
+            <div class="bmi-grid">
+              <section class="body-card">
+                <div class="body-figure">
+                  <i id="body-head"></i>
+                  <i id="body-torso"></i>
+                </div>
+                <strong id="body-title">Нет данных</strong>
+                <p id="body-copy">Введите рост и вес.</p>
+              </section>
+              <section class="scale-card">
+                <h2>Шкала состояния по BMI</h2>
+                <p>Маркер двигается по шкале сразу после ввода роста и веса.</p>
+                <div class="bmi-scale">
+                  <div class="scale-segments"><i></i><i></i><i></i><i></i></div>
+                  <span id="bmi-marker"></span>
+                  <div class="scale-labels"><small>мало</small><small>норма</small><small>выше нормы</small><small>риск</small></div>
+                </div>
+                <strong id="scale-value">BMI появится после ввода данных.</strong>
+              </section>
+            </div>
+            <div class="button-row">
+              <button type="button" class="button secondary" id="calculate-bmi">Рассчитать</button>
+              <button type="button" class="button primary" id="save-participant">Сохранить</button>
+              <button type="button" class="button danger" data-page="registration">Назад</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="page" id="page-participants">
+          <article class="content-card participants-card">
+            <header class="participants-header">
+              <div><h1>Список участников</h1><p id="participants-count">Зарегистрировано: 0</p></div>
+              <div class="participants-actions">
+                <div class="button-row admin-only" id="admin-actions">
+                  <button type="button" class="button danger" id="delete-participant">Удалить выбранного</button>
+                  <button type="button" class="button secondary" id="clear-participants">Очистить список</button>
+                </div>
+                <button type="button" class="button secondary" data-page="home">Назад</button>
+              </div>
+            </header>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Фото</th><th>Имя</th><th>Фамилия</th><th>Пол</th><th>Дата рождения</th><th>Дистанция</th><th>Страна</th><th>Город</th><th>BMI</th><th>Категория</th></tr></thead>
+                <tbody id="participants-body"></tbody>
+              </table>
+            </div>
+            <p class="data-hint">Данные сохраняются локально и остаются доступны после повторного запуска.</p>
+          </article>
+        </section>
+      </div>
+      <footer><strong id="timer">До марафона осталось: ...</strong><span id="footer-date">Marathon Skills | 15 июня 2026</span></footer>
+    </main>
+  </div>
+
+  <div class="login-overlay" id="login-overlay">
+    <article class="login-card">
+      <header class="login-brand"><img src="assets/logo_mark.png" alt=""><div><h1>Marathon Skills</h1><p>Вход в личный кабинет</p></div></header>
+      <form id="login-form" novalidate>
+        <label>Логин<input id="login" maxlength="32" autocomplete="username"></label>
+        <label>Пароль<input id="password" type="password" maxlength="32" autocomplete="current-password"></label>
+        <p class="form-message" id="login-message"></p>
+        <div class="button-row"><button class="button primary" type="submit">Войти</button><button class="button secondary" id="show-signup" type="button">Создать аккаунт</button></div>
+      </form>
+      <form id="signup-form" class="hidden" novalidate>
+        <h2>Регистрация аккаунта бегуна</h2>
+        <label>Имя<input id="signup-first-name" maxlength="32" autocomplete="given-name"></label>
+        <label>Фамилия<input id="signup-last-name" maxlength="32" autocomplete="family-name"></label>
+        <label>Логин<input id="signup-login" maxlength="32" autocomplete="username"></label>
+        <label>Пароль<input id="signup-password" type="password" maxlength="32" autocomplete="new-password"></label>
+        <label>Повторите пароль<input id="signup-password-repeat" type="password" maxlength="32" autocomplete="new-password"></label>
+        <p class="form-message" id="signup-message"></p>
+        <div class="button-row"><button class="button primary" type="submit">Зарегистрироваться</button><button class="button secondary" id="show-login" type="button">Назад ко входу</button></div>
+      </form>
+      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ: admin / admin123</p><p>Бегуны создают собственные аккаунты.</p></section>
+    </article>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
