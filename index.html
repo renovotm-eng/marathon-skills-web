@@ -151,9 +151,49 @@
                 <button type="button" class="button secondary" data-page="home">Назад</button>
               </div>
             </header>
+            <section class="participants-filters" aria-label="Поиск и сортировка участников">
+              <label class="search-field">
+                <span>Поиск</span>
+                <input id="participants-search" type="search" placeholder="Имя, страна, город, дистанция..." autocomplete="off">
+              </label>
+              <label>
+                <span>Сортировать по</span>
+                <select id="participants-sort">
+                  <option value="registrationDate">Дате добавления</option>
+                  <option value="firstName">Имени</option>
+                  <option value="lastName">Фамилии</option>
+                  <option value="gender">Полу</option>
+                  <option value="birthDate">Дате рождения</option>
+                  <option value="distance">Дистанции</option>
+                  <option value="country">Стране</option>
+                  <option value="city">Городу</option>
+                  <option value="bmi">BMI</option>
+                  <option value="bmiCategory">Категории BMI</option>
+                </select>
+              </label>
+              <label>
+                <span>Порядок</span>
+                <select id="participants-sort-direction">
+                  <option value="asc">По возрастанию</option>
+                  <option value="desc" selected>По убыванию</option>
+                </select>
+              </label>
+              <button type="button" class="button secondary filters-reset" id="reset-participants-filters">Сбросить</button>
+            </section>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Фото</th><th>Имя</th><th>Фамилия</th><th>Пол</th><th>Дата рождения</th><th>Дистанция</th><th>Страна</th><th>Город</th><th>BMI</th><th>Категория</th></tr></thead>
+                <thead><tr>
+                  <th>Фото</th>
+                  <th><button type="button" class="sort-column" data-sort="firstName">Имя</button></th>
+                  <th><button type="button" class="sort-column" data-sort="lastName">Фамилия</button></th>
+                  <th><button type="button" class="sort-column" data-sort="gender">Пол</button></th>
+                  <th><button type="button" class="sort-column" data-sort="birthDate">Дата рождения</button></th>
+                  <th><button type="button" class="sort-column" data-sort="distance">Дистанция</button></th>
+                  <th><button type="button" class="sort-column" data-sort="country">Страна</button></th>
+                  <th><button type="button" class="sort-column" data-sort="city">Город</button></th>
+                  <th><button type="button" class="sort-column" data-sort="bmi">BMI</button></th>
+                  <th><button type="button" class="sort-column" data-sort="bmiCategory">Категория</button></th>
+                </tr></thead>
                 <tbody id="participants-body"></tbody>
               </table>
             </div>

@@ -15,6 +15,7 @@ const state = {
   draftParticipant: null,
   selectedParticipantId: null,
   bmi: null,
+  participantFilters: { query: "", sortBy: "registrationDate", direction: "desc" },
   crop: { image: null, x: 0, y: 0, width: 0, height: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 }
 };
 
@@ -378,14 +379,65 @@ function saveParticipant() {
 }
 
 function renderParticipants() {
-  $("#participants-count").textContent = `Зарегистрировано: ${state.participants.length}`;
-  $("#participants-body").innerHTML = state.participants.map((participant) => `
+  const participants = getVisibleParticipants();
+  const isFiltered = Boolean(state.participantFilters.query.trim());
+  $("#participants-count").textContent = isFiltered
+    ? `Найдено: ${participants.length} из ${state.participants.length}`
+    : `Зарегистрировано: ${state.participants.length}`;
+  $("#participants-body").innerHTML = participants.length ? participants.map((participant) => `
     <tr data-id="${participant.id}" class="${participant.id === state.selectedParticipantId ? "selected" : ""}">
       <td>${participant.photo ? `<img class="runner-photo" src="${participant.photo}" alt="">` : `<span class="runner-photo-placeholder"></span>`}</td>
       <td>${escapeHtml(participant.firstName)}</td><td>${escapeHtml(participant.lastName)}</td><td>${escapeHtml(participant.gender)}</td>
       <td>${formatDateRu(participant.birthDate)}</td><td>${escapeHtml(participant.distance)}</td><td>${escapeHtml(participant.country)}</td>
       <td>${escapeHtml(participant.city)}</td><td>${Number(participant.bmi).toFixed(1)}</td><td>${escapeHtml(participant.bmiCategory)}</td>
-    </tr>`).join("");
+    </tr>`).join("") : `<tr class="empty-row"><td colspan="10">${isFiltered ? "По вашему запросу участники не найдены." : "Список участников пока пуст."}</td></tr>`;
+  $$(".sort-column").forEach((button) => {
+    const isActive = button.dataset.sort === state.participantFilters.sortBy;
+    button.classList.toggle("active", isActive);
+    button.dataset.direction = isActive ? state.participantFilters.direction : "";
+  });
+}
+
+function getVisibleParticipants() {
+  const query = state.participantFilters.query.trim().toLocaleLowerCase("ru");
+  const participants = query
+    ? state.participants.filter((participant) => getParticipantSearchText(participant).includes(query))
+    : [...state.participants];
+  return participants.sort((left, right) => {
+    const result = compareParticipants(left, right, state.participantFilters.sortBy);
+    return state.participantFilters.direction === "asc" ? result : -result;
+  });
+}
+
+function getParticipantSearchText(participant) {
+  return [
+    participant.firstName,
+    participant.lastName,
+    participant.gender,
+    formatDateRu(participant.birthDate),
+    participant.distance,
+    participant.country,
+    participant.city,
+    Number(participant.bmi).toFixed(1),
+    participant.bmiCategory
+  ].join(" ").toLocaleLowerCase("ru");
+}
+
+function compareParticipants(left, right, sortBy) {
+  if (sortBy === "bmi") return Number(left.bmi) - Number(right.bmi);
+  if (sortBy === "distance") return parseInt(left.distance, 10) - parseInt(right.distance, 10);
+  if (sortBy === "birthDate" || sortBy === "registrationDate") {
+    return new Date(left[sortBy] || 0) - new Date(right[sortBy] || 0);
+  }
+  return String(left[sortBy] ?? "").localeCompare(String(right[sortBy] ?? ""), "ru", { sensitivity: "base" });
+}
+
+function resetParticipantFilters() {
+  state.participantFilters = { query: "", sortBy: "registrationDate", direction: "desc" };
+  $("#participants-search").value = "";
+  $("#participants-sort").value = state.participantFilters.sortBy;
+  $("#participants-sort-direction").value = state.participantFilters.direction;
+  renderParticipants();
 }
 
 function escapeHtml(value) {
@@ -499,9 +551,30 @@ function setupEvents() {
   $("#save-participant").addEventListener("click", saveParticipant);
   $("#delete-participant").addEventListener("click", deleteSelectedParticipant);
   $("#clear-participants").addEventListener("click", clearParticipants);
+  $("#participants-search").addEventListener("input", (event) => {
+    state.participantFilters.query = event.target.value;
+    renderParticipants();
+  });
+  $("#participants-sort").addEventListener("change", (event) => {
+    state.participantFilters.sortBy = event.target.value;
+    renderParticipants();
+  });
+  $("#participants-sort-direction").addEventListener("change", (event) => {
+    state.participantFilters.direction = event.target.value;
+    renderParticipants();
+  });
+  $("#reset-participants-filters").addEventListener("click", resetParticipantFilters);
+  $$(".sort-column").forEach((button) => button.addEventListener("click", () => {
+    const sortBy = button.dataset.sort;
+    state.participantFilters.direction = state.participantFilters.sortBy === sortBy && state.participantFilters.direction === "asc" ? "desc" : "asc";
+    state.participantFilters.sortBy = sortBy;
+    $("#participants-sort").value = sortBy;
+    $("#participants-sort-direction").value = state.participantFilters.direction;
+    renderParticipants();
+  }));
   $("#participants-body").addEventListener("click", (event) => {
     const row = event.target.closest("tr");
-    if (!row) return;
+    if (!row?.dataset.id) return;
     state.selectedParticipantId = row.dataset.id;
     renderParticipants();
   });
