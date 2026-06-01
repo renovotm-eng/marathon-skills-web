@@ -1,5 +1,9 @@
 # Marathon Skills Web
 
+## Онлайн-версия
+
+Рабочий сайт: https://marathon-skills-web.vercel.app
+
 Браузерная версия приложения Marathon Skills без серверной части.
 
 ## Возможности
