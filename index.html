@@ -19,11 +19,13 @@
           <button type="button" data-page="home">Главная</button>
           <button type="button" data-page="registration">Регистрация</button>
           <button type="button" data-page="participants">Участники</button>
+          <button type="button" class="admin-nav hidden" data-page="admin">Админ-панель</button>
         </nav>
         <section class="sidebar-panel account-panel">
           <span class="sidebar-label">Аккаунт</span>
           <strong id="current-account">Вход не выполнен</strong>
-          <button type="button" class="sidebar-action" id="logout-button">Выйти из аккаунта</button>
+          <button type="button" class="sidebar-action" id="login-button">Войти в аккаунт</button>
+          <button type="button" class="sidebar-action hidden" id="logout-button">Выйти из аккаунта</button>
         </section>
       </div>
       <section class="sidebar-panel date-panel">
@@ -51,6 +53,7 @@
               <div class="button-row">
                 <button type="button" class="button primary" data-page="registration">Зарегистрироваться</button>
                 <button type="button" class="button secondary" data-page="participants">Список участников</button>
+                <button type="button" class="button ghost" id="hero-login">Личный кабинет</button>
               </div>
             </div>
           </article>
@@ -59,6 +62,28 @@
             <article class="info-card"><b>02</b><h2>Регистрация</h2><p>Форма не дает ввести случайные символы, проверяет телефон, email, дату рождения, страну и город.</p></article>
             <article class="info-card"><b>03</b><h2>BMI-система</h2><p>После ввода роста и веса программа показывает BMI, цветную шкалу и понятное состояние тела.</p></article>
           </div>
+          <section class="home-band">
+            <div>
+              <p class="section-kicker">Marathon Skills 2026</p>
+              <h2>Городской забег для разных уровней подготовки</h2>
+              <p>Выберите комфортную дистанцию, зарегистрируйтесь заранее и приезжайте на старт минимум за час. На площадке будут работать раздевалки, камеры хранения, медицинский пункт и зоны восстановления.</p>
+            </div>
+            <div class="race-facts">
+              <article><strong>15 июня</strong><span>дата старта</span></article>
+              <article><strong>09:00</strong><span>общий сбор</span></article>
+              <article><strong>4</strong><span>дистанции</span></article>
+              <article><strong>14+</strong><span>возраст участников</span></article>
+            </div>
+          </section>
+          <section class="route-section">
+            <header><p class="section-kicker">Дистанции</p><h2>Подберите свой формат участия</h2></header>
+            <div class="route-grid">
+              <article><strong>5 км</strong><span>Легкий старт</span><p>Короткая дистанция для первого забега и комфортного знакомства с марафоном.</p></article>
+              <article><strong>10 км</strong><span>Городской ритм</span><p>Маршрут для любителей бега, которые готовы проверить темп и выносливость.</p></article>
+              <article><strong>21 км</strong><span>Полумарафон</span><p>Серьезная дистанция с пунктами воды и поддержкой волонтеров по маршруту.</p></article>
+              <article><strong>42 км</strong><span>Марафон</span><p>Главный старт дня для подготовленных участников и настоящая проверка характера.</p></article>
+            </div>
+          </section>
         </section>
 
         <section class="page" id="page-registration">
@@ -169,6 +194,7 @@
                   <option value="city">Городу</option>
                   <option value="bmi">BMI</option>
                   <option value="bmiCategory">Категории BMI</option>
+                  <option value="status">Статусу допуска</option>
                 </select>
               </label>
               <label>
@@ -193,6 +219,7 @@
                   <th><button type="button" class="sort-column" data-sort="city">Город</button></th>
                   <th><button type="button" class="sort-column" data-sort="bmi">BMI</button></th>
                   <th><button type="button" class="sort-column" data-sort="bmiCategory">Категория</button></th>
+                  <th><button type="button" class="sort-column" data-sort="status">Статус</button></th>
                 </tr></thead>
                 <tbody id="participants-body"></tbody>
               </table>
@@ -200,13 +227,53 @@
             <p class="data-hint">Данные сохраняются локально и остаются доступны после повторного запуска.</p>
           </article>
         </section>
+
+        <section class="page" id="page-admin">
+          <article class="content-card admin-card">
+            <header class="admin-header">
+              <div>
+                <p class="section-kicker">Кабинет организатора</p>
+                <h1>Админ-панель участников</h1>
+                <p class="subtitle">Контакты, статусы допуска, редактирование данных и выгрузка списка перед стартом.</p>
+              </div>
+              <div class="button-row">
+                <button type="button" class="button primary" id="export-participants">Экспорт CSV</button>
+                <button type="button" class="button secondary" data-page="home">На главную</button>
+              </div>
+            </header>
+            <section class="admin-stats" aria-label="Статистика участников">
+              <article><span>Всего заявок</span><strong id="admin-total">0</strong></article>
+              <article><span>Допущены</span><strong id="admin-active">0</strong></article>
+              <article><span>Дисквалифицированы</span><strong id="admin-disqualified">0</strong></article>
+              <article><span>Нужна проверка BMI</span><strong id="admin-attention">0</strong></article>
+            </section>
+            <section class="admin-filters" aria-label="Фильтры администратора">
+              <label><span>Поиск по данным</span><input id="admin-search" type="search" placeholder="Имя, email, телефон, город..." autocomplete="off"></label>
+              <label><span>Статус допуска</span><select id="admin-status-filter"><option value="all">Все статусы</option><option value="active">Допущены</option><option value="disqualified">Дисквалифицированы</option></select></label>
+              <label><span>Дистанция</span><select id="admin-distance-filter"><option value="all">Все дистанции</option><option>5 км</option><option>10 км</option><option>21 км</option><option>42 км</option></select></label>
+              <button type="button" class="button secondary" id="reset-admin-filters">Сбросить</button>
+            </section>
+            <div class="admin-workspace">
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>Участник</th><th>Контакты</th><th>Дистанция</th><th>Статус</th><th></th></tr></thead>
+                  <tbody id="admin-participants-body"></tbody>
+                </table>
+              </div>
+              <aside class="admin-detail" id="admin-detail">
+                <div class="admin-detail-empty"><strong>Выберите участника</strong><p>Справа появятся полные данные, статус допуска и инструменты редактирования.</p></div>
+              </aside>
+            </div>
+          </article>
+        </section>
       </div>
       <footer><strong id="timer">До марафона осталось: ...</strong><span id="footer-date">Marathon Skills | 15 июня 2026</span></footer>
     </main>
   </div>
 
-  <div class="login-overlay" id="login-overlay">
+  <div class="login-overlay hidden" id="login-overlay">
     <article class="login-card">
+      <button type="button" class="login-close" id="close-login" aria-label="Закрыть">×</button>
       <header class="login-brand"><img src="assets/logo_mark.png" alt=""><div><h1>Marathon Skills</h1><p>Вход в личный кабинет</p></div></header>
       <form id="login-form" novalidate>
         <label>Логин<input id="login" maxlength="32" autocomplete="username"></label>
@@ -224,7 +291,7 @@
         <p class="form-message" id="signup-message"></p>
         <div class="button-row"><button class="button primary" type="submit">Зарегистрироваться</button><button class="button secondary" id="show-login" type="button">Назад ко входу</button></div>
       </form>
-      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ: admin / admin123</p><p>Бегуны создают собственные аккаунты.</p></section>
+      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ: admin / admin</p><p>Бегуны создают собственные аккаунты.</p></section>
     </article>
   </div>
   <div class="toast" id="toast" role="status"></div>

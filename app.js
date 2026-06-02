@@ -10,12 +10,13 @@ const countries = `Казахстан|Австралия|Австрия|Азер
 
 const state = {
   accounts: loadJson(STORAGE.accounts, []),
-  participants: loadJson(STORAGE.participants, []),
+  participants: loadJson(STORAGE.participants, []).map(normalizeParticipant),
   session: null,
   draftParticipant: null,
   selectedParticipantId: null,
   bmi: null,
   participantFilters: { query: "", sortBy: "registrationDate", direction: "desc" },
+  adminFilters: { query: "", status: "all", distance: "all" },
   crop: { image: null, x: 0, y: 0, width: 0, height: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 }
 };
 
@@ -40,6 +41,16 @@ function saveJson(key, value) {
     toast("Не удалось сохранить данные. Возможно, память браузера заполнена.", true);
     return false;
   }
+}
+
+function normalizeParticipant(participant) {
+  return {
+    ...participant,
+    id: participant.id || crypto.randomUUID(),
+    status: participant.status === "disqualified" ? "disqualified" : "active",
+    disqualificationReason: participant.disqualificationReason || "",
+    adminNote: participant.adminNote || ""
+  };
 }
 
 function toast(message, isError = false) {
@@ -85,6 +96,14 @@ function updateCountdown() {
 }
 
 function showPage(name) {
+  if (name === "registration" && !state.session) {
+    openLogin("Войдите или создайте аккаунт бегуна, чтобы зарегистрироваться на марафон.");
+    return;
+  }
+  if (name === "admin" && !state.session?.isAdmin) {
+    openLogin("Войдите с правами администратора, чтобы открыть панель управления.");
+    return;
+  }
   $$(".page").forEach((page) => page.classList.remove("active"));
   $(`#page-${name}`).classList.add("active");
   if (name === "registration" && state.session && !state.session.isAdmin) {
@@ -94,6 +113,7 @@ function showPage(name) {
     }
   }
   if (name === "participants") renderParticipants();
+  if (name === "admin") renderAdminDashboard();
 }
 
 function updateAccountUi() {
@@ -101,6 +121,9 @@ function updateAccountUi() {
     ? "Вход не выполнен"
     : state.session.isAdmin ? "Админ: полный доступ" : `Бегун: ${state.session.firstName} ${state.session.lastName}`;
   $("#admin-actions").classList.toggle("visible", Boolean(state.session?.isAdmin));
+  $$(".admin-nav").forEach((button) => button.classList.toggle("hidden", !state.session?.isAdmin));
+  $("#login-button").classList.toggle("hidden", Boolean(state.session));
+  $("#logout-button").classList.toggle("hidden", !state.session);
 }
 
 function showLogin() {
@@ -115,6 +138,24 @@ function showSignup() {
   $("#signup-form").classList.remove("hidden");
   $("#admin-hint").classList.add("hidden");
   $("#login-message").textContent = "";
+}
+
+function openLogin(message = "") {
+  showLogin();
+  $("#login-message").textContent = message;
+  $("#login-overlay").classList.remove("hidden");
+}
+
+function closeLogin() {
+  $("#login-overlay").classList.add("hidden");
+  $("#login-message").textContent = "";
+  showPage("home");
+}
+
+function openPersonalCabinet() {
+  if (!state.session) return openLogin();
+  if (state.session.isAdmin) return showPage("admin");
+  toast(`Вы вошли как ${state.session.firstName} ${state.session.lastName}.`);
 }
 
 function isValidName(value) {
@@ -196,8 +237,9 @@ function logout() {
   $("#password").value = "";
   $("#login-message").textContent = "";
   showLogin();
-  $("#login-overlay").classList.remove("hidden");
+  $("#login-overlay").classList.add("hidden");
   updateAccountUi();
+  toast("Вы вышли из аккаунта.");
 }
 
 async function handleLogin(event) {
@@ -207,7 +249,7 @@ async function handleLogin(event) {
   const message = $("#login-message");
   message.className = "form-message";
 
-  if (login.toLowerCase() === "admin" && password === "admin123") {
+  if (login.toLowerCase() === "admin" && (password === "admin" || password === "admin123")) {
     state.session = { isAdmin: true, login: "admin", firstName: "Админ", lastName: "" };
   } else {
     const account = state.accounts.find((item) => item.login.toLowerCase() === login.toLowerCase());
@@ -222,7 +264,7 @@ async function handleLogin(event) {
   $("#password").value = "";
   $("#login-overlay").classList.add("hidden");
   updateAccountUi();
-  showPage("home");
+  showPage(state.session.isAdmin ? "admin" : "home");
 }
 
 async function handleSignup(event) {
@@ -365,7 +407,10 @@ function saveParticipant() {
     ...state.draftParticipant,
     bmi: Number(state.bmi.toFixed(1)),
     bmiCategory: getBmiCategory(state.bmi),
-    photo: state.crop.image ? canvas.toDataURL("image/jpeg", .82) : ""
+    photo: state.crop.image ? canvas.toDataURL("image/jpeg", .82) : "",
+    status: "active",
+    disqualificationReason: "",
+    adminNote: ""
   };
   state.participants.push(participant);
   if (!saveJson(STORAGE.participants, state.participants)) {
@@ -390,7 +435,8 @@ function renderParticipants() {
       <td>${escapeHtml(participant.firstName)}</td><td>${escapeHtml(participant.lastName)}</td><td>${escapeHtml(participant.gender)}</td>
       <td>${formatDateRu(participant.birthDate)}</td><td>${escapeHtml(participant.distance)}</td><td>${escapeHtml(participant.country)}</td>
       <td>${escapeHtml(participant.city)}</td><td>${Number(participant.bmi).toFixed(1)}</td><td>${escapeHtml(participant.bmiCategory)}</td>
-    </tr>`).join("") : `<tr class="empty-row"><td colspan="10">${isFiltered ? "По вашему запросу участники не найдены." : "Список участников пока пуст."}</td></tr>`;
+      <td>${renderStatusBadge(participant.status)}</td>
+    </tr>`).join("") : `<tr class="empty-row"><td colspan="11">${isFiltered ? "По вашему запросу участники не найдены." : "Список участников пока пуст."}</td></tr>`;
   $$(".sort-column").forEach((button) => {
     const isActive = button.dataset.sort === state.participantFilters.sortBy;
     button.classList.toggle("active", isActive);
@@ -419,7 +465,8 @@ function getParticipantSearchText(participant) {
     participant.country,
     participant.city,
     Number(participant.bmi).toFixed(1),
-    participant.bmiCategory
+    participant.bmiCategory,
+    getStatusLabel(participant.status)
   ].join(" ").toLocaleLowerCase("ru");
 }
 
@@ -444,6 +491,172 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
+function getStatusLabel(status) {
+  return status === "disqualified" ? "Дисквалифицирован" : "Допущен";
+}
+
+function renderStatusBadge(status) {
+  return `<span class="status-badge ${status === "disqualified" ? "disqualified" : "active"}">${getStatusLabel(status)}</span>`;
+}
+
+function getParticipantAge(birthDate) {
+  if (!birthDate) return "";
+  const birthday = new Date(`${birthDate.slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  let age = today.getFullYear() - birthday.getFullYear();
+  if (today < new Date(today.getFullYear(), birthday.getMonth(), birthday.getDate())) age -= 1;
+  return age;
+}
+
+function getAdminVisibleParticipants() {
+  const query = state.adminFilters.query.trim().toLocaleLowerCase("ru");
+  return [...state.participants]
+    .filter((participant) => state.adminFilters.status === "all" || participant.status === state.adminFilters.status)
+    .filter((participant) => state.adminFilters.distance === "all" || participant.distance === state.adminFilters.distance)
+    .filter((participant) => !query || [
+      participant.firstName,
+      participant.lastName,
+      participant.email,
+      participant.phone,
+      participant.gender,
+      participant.distance,
+      participant.country,
+      participant.city,
+      participant.bmiCategory,
+      participant.disqualificationReason,
+      participant.adminNote
+    ].join(" ").toLocaleLowerCase("ru").includes(query))
+    .sort((left, right) => new Date(right.registrationDate || 0) - new Date(left.registrationDate || 0));
+}
+
+function renderAdminDashboard() {
+  if (!state.session?.isAdmin) return;
+  const participants = getAdminVisibleParticipants();
+  const active = state.participants.filter((participant) => participant.status !== "disqualified").length;
+  const disqualified = state.participants.length - active;
+  const attention = state.participants.filter((participant) => Number(participant.bmi) < 18.5 || Number(participant.bmi) >= 30).length;
+  $("#admin-total").textContent = state.participants.length;
+  $("#admin-active").textContent = active;
+  $("#admin-disqualified").textContent = disqualified;
+  $("#admin-attention").textContent = attention;
+  $("#admin-participants-body").innerHTML = participants.length ? participants.map((participant) => `
+    <tr data-id="${participant.id}" class="${participant.id === state.selectedParticipantId ? "selected" : ""}">
+      <td><div class="admin-runner">${participant.photo ? `<img class="runner-photo" src="${participant.photo}" alt="">` : `<span class="runner-photo-placeholder"></span>`}<span><strong>${escapeHtml(participant.firstName)} ${escapeHtml(participant.lastName)}</strong><small>${escapeHtml(participant.country)}, ${escapeHtml(participant.city)}</small></span></div></td>
+      <td><strong>${escapeHtml(participant.email)}</strong><small>${escapeHtml(participant.phone)}</small></td>
+      <td><strong>${escapeHtml(participant.distance)}</strong><small>BMI ${Number(participant.bmi).toFixed(1)}</small></td>
+      <td>${renderStatusBadge(participant.status)}</td>
+      <td><button type="button" class="table-action" data-admin-select="${participant.id}">Открыть</button></td>
+    </tr>`).join("") : `<tr class="empty-row"><td colspan="5">По выбранным фильтрам участники не найдены.</td></tr>`;
+  renderAdminDetail();
+}
+
+function getParticipantById(id = state.selectedParticipantId) {
+  return state.participants.find((participant) => participant.id === id);
+}
+
+function renderOptions(values, selected) {
+  return values.map((value) => `<option${value === selected ? " selected" : ""}>${escapeHtml(value)}</option>`).join("");
+}
+
+function renderAdminDetail() {
+  const participant = getParticipantById();
+  if (!participant) {
+    $("#admin-detail").innerHTML = `<div class="admin-detail-empty"><strong>Выберите участника</strong><p>Справа появятся полные данные, статус допуска и инструменты редактирования.</p></div>`;
+    return;
+  }
+  const reasonVisible = participant.status === "disqualified";
+  $("#admin-detail").innerHTML = `
+    <form id="admin-edit-form" class="admin-edit-form">
+      <header><div><p class="section-kicker">Карточка участника</p><h2>${escapeHtml(participant.firstName)} ${escapeHtml(participant.lastName)}</h2></div>${renderStatusBadge(participant.status)}</header>
+      <div class="admin-profile">
+        ${participant.photo ? `<img src="${participant.photo}" alt="">` : `<span class="runner-photo-placeholder"></span>`}
+        <p>Заявка от ${escapeHtml(formatDateRu(participant.registrationDate))}<br>${getParticipantAge(participant.birthDate)} лет, BMI ${Number(participant.bmi).toFixed(1)}</p>
+      </div>
+      <div class="admin-form-grid">
+        <label>Имя<input name="firstName" value="${escapeHtml(participant.firstName)}"></label>
+        <label>Фамилия<input name="lastName" value="${escapeHtml(participant.lastName)}"></label>
+        <label>Email<input name="email" value="${escapeHtml(participant.email)}"></label>
+        <label>Телефон<input name="phone" value="${escapeHtml(participant.phone)}"></label>
+        <label>Пол<select name="gender">${renderOptions(["Мужской", "Женский"], participant.gender)}</select></label>
+        <label>Дата рождения<input name="birthDate" type="date" value="${escapeHtml(participant.birthDate)}"></label>
+        <label>Дистанция<select name="distance">${renderOptions(["5 км", "10 км", "21 км", "42 км"], participant.distance)}</select></label>
+        <label>Страна<select name="country">${renderOptions(countries, participant.country)}</select></label>
+        <label class="admin-wide">Город<input name="city" value="${escapeHtml(participant.city)}"></label>
+        <label class="admin-wide">Статус допуска<select name="status" id="admin-edit-status"><option value="active"${participant.status !== "disqualified" ? " selected" : ""}>Допущен</option><option value="disqualified"${participant.status === "disqualified" ? " selected" : ""}>Дисквалифицирован</option></select></label>
+        <label class="admin-wide ${reasonVisible ? "" : "hidden"}" id="admin-reason-field">Причина дисквалификации<textarea name="disqualificationReason" rows="2">${escapeHtml(participant.disqualificationReason)}</textarea></label>
+        <label class="admin-wide">Заметка организатора<textarea name="adminNote" rows="3" placeholder="Например: проверить справку перед выдачей номера">${escapeHtml(participant.adminNote)}</textarea></label>
+      </div>
+      <div class="button-row admin-detail-actions">
+        <button class="button primary" type="submit">Сохранить</button>
+        <button class="button ${participant.status === "disqualified" ? "secondary" : "warning"}" id="toggle-disqualification" type="button">${participant.status === "disqualified" ? "Вернуть допуск" : "Дисквалифицировать"}</button>
+        <button class="button danger" id="admin-delete-participant" type="button">Удалить</button>
+      </div>
+    </form>`;
+}
+
+function saveAdminParticipant(event) {
+  event.preventDefault();
+  const participant = getParticipantById();
+  if (!participant) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  if (!isCapitalizedName(data.firstName) || !isCapitalizedName(data.lastName)) return toast("Имя и фамилия должны начинаться с заглавной буквы.", true);
+  if (!isValidEmail(data.email)) return toast("Введите корректный email.", true);
+  if (getPhoneDigits(data.phone).length !== 10) return toast("Введите корректный телефон участника.", true);
+  if (!isValidName(data.city)) return toast("Введите корректное название города.", true);
+  if (data.status === "disqualified" && !data.disqualificationReason.trim()) return toast("Укажите причину дисквалификации.", true);
+  Object.assign(participant, data, {
+    firstName: data.firstName.trim(),
+    lastName: data.lastName.trim(),
+    email: data.email.trim().toLowerCase(),
+    phone: formatPhone(data.phone),
+    city: normalizeName(data.city),
+    disqualificationReason: data.status === "disqualified" ? data.disqualificationReason.trim() : "",
+    adminNote: data.adminNote.trim()
+  });
+  saveJson(STORAGE.participants, state.participants);
+  renderParticipants();
+  renderAdminDashboard();
+  toast("Карточка участника обновлена.");
+}
+
+function toggleParticipantDisqualification() {
+  const participant = getParticipantById();
+  if (!participant) return;
+  const isRestoring = participant.status === "disqualified";
+  participant.status = isRestoring ? "active" : "disqualified";
+  participant.disqualificationReason = isRestoring ? "" : participant.disqualificationReason || "Решение организатора";
+  saveJson(STORAGE.participants, state.participants);
+  renderParticipants();
+  renderAdminDashboard();
+  toast(isRestoring ? "Участник снова допущен к старту." : "Участник дисквалифицирован.");
+}
+
+function resetAdminFilters() {
+  state.adminFilters = { query: "", status: "all", distance: "all" };
+  $("#admin-search").value = "";
+  $("#admin-status-filter").value = "all";
+  $("#admin-distance-filter").value = "all";
+  renderAdminDashboard();
+}
+
+function exportParticipantsCsv() {
+  if (!state.session?.isAdmin) return toast("Экспорт доступен только администратору.", true);
+  const rows = [["Имя", "Фамилия", "Email", "Телефон", "Пол", "Дата рождения", "Дистанция", "Страна", "Город", "BMI", "Категория BMI", "Статус", "Причина дисквалификации", "Заметка организатора"]];
+  state.participants.forEach((participant) => rows.push([
+    participant.firstName, participant.lastName, participant.email, participant.phone, participant.gender,
+    formatDateRu(participant.birthDate), participant.distance, participant.country, participant.city,
+    Number(participant.bmi).toFixed(1), participant.bmiCategory, getStatusLabel(participant.status),
+    participant.disqualificationReason, participant.adminNote
+  ]));
+  const csv = "\uFEFF" + rows.map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  link.download = `marathon-skills-participants-${formatDateForInput(new Date())}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+  toast("CSV-файл со списком участников подготовлен.");
+}
+
 function deleteSelectedParticipant() {
   if (!state.session?.isAdmin) return toast("Удалять участников может только администратор.", true);
   if (!state.selectedParticipantId) return toast("Выберите участника в таблице.", true);
@@ -453,6 +666,7 @@ function deleteSelectedParticipant() {
   state.selectedParticipantId = null;
   saveJson(STORAGE.participants, state.participants);
   renderParticipants();
+  renderAdminDashboard();
 }
 
 function clearParticipants() {
@@ -462,6 +676,7 @@ function clearParticipants() {
   state.selectedParticipantId = null;
   saveJson(STORAGE.participants, state.participants);
   renderParticipants();
+  renderAdminDashboard();
 }
 
 function drawPhoto() {
@@ -528,6 +743,9 @@ function setRegistrationDefaults() {
 
 function setupEvents() {
   $$("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
+  $("#login-button").addEventListener("click", () => openLogin());
+  $("#hero-login").addEventListener("click", openPersonalCabinet);
+  $("#close-login").addEventListener("click", closeLogin);
   $("#logout-button").addEventListener("click", logout);
   $("#login-form").addEventListener("submit", handleLogin);
   $("#signup-form").addEventListener("submit", handleSignup);
@@ -564,6 +782,36 @@ function setupEvents() {
     renderParticipants();
   });
   $("#reset-participants-filters").addEventListener("click", resetParticipantFilters);
+  $("#admin-search").addEventListener("input", (event) => {
+    state.adminFilters.query = event.target.value;
+    renderAdminDashboard();
+  });
+  $("#admin-status-filter").addEventListener("change", (event) => {
+    state.adminFilters.status = event.target.value;
+    renderAdminDashboard();
+  });
+  $("#admin-distance-filter").addEventListener("change", (event) => {
+    state.adminFilters.distance = event.target.value;
+    renderAdminDashboard();
+  });
+  $("#reset-admin-filters").addEventListener("click", resetAdminFilters);
+  $("#export-participants").addEventListener("click", exportParticipantsCsv);
+  $("#admin-participants-body").addEventListener("click", (event) => {
+    const row = event.target.closest("tr");
+    if (!row?.dataset.id) return;
+    state.selectedParticipantId = row.dataset.id;
+    renderAdminDashboard();
+  });
+  $("#admin-detail").addEventListener("submit", saveAdminParticipant);
+  $("#admin-detail").addEventListener("change", (event) => {
+    if (event.target.id === "admin-edit-status") {
+      $("#admin-reason-field").classList.toggle("hidden", event.target.value !== "disqualified");
+    }
+  });
+  $("#admin-detail").addEventListener("click", (event) => {
+    if (event.target.id === "toggle-disqualification") toggleParticipantDisqualification();
+    if (event.target.id === "admin-delete-participant") deleteSelectedParticipant();
+  });
   $$(".sort-column").forEach((button) => button.addEventListener("click", () => {
     const sortBy = button.dataset.sort;
     state.participantFilters.direction = state.participantFilters.sortBy === sortBy && state.participantFilters.direction === "asc" ? "desc" : "asc";
