@@ -1,10 +1,44 @@
-const { getFirebaseAdmin, isFirebaseAdminConfigured } = require("./firebase-admin");
-
 function getAdminEmails() {
   return String(process.env.ADMIN_EMAILS || "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function isFirebaseTokenVerifierConfigured() {
+  return Boolean(process.env.FIREBASE_API_KEY);
+}
+
+async function verifyFirebaseIdToken(idToken) {
+  if (!isFirebaseTokenVerifierConfigured()) {
+    const error = new Error("Firebase Auth is not configured");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(process.env.FIREBASE_API_KEY)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken })
+    }
+  );
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload.users?.length) {
+    const error = new Error("Invalid Firebase ID token");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const user = payload.users[0];
+  return {
+    uid: user.localId,
+    email: String(user.email || "").toLowerCase(),
+    name: user.displayName || user.email || "Google user",
+    picture: user.photoUrl || ""
+  };
 }
 
 async function requireUser(req) {
@@ -17,14 +51,8 @@ async function requireUser(req) {
     throw error;
   }
 
-  if (!isFirebaseAdminConfigured()) {
-    const error = new Error("Firebase Admin is not configured");
-    error.statusCode = 500;
-    throw error;
-  }
-
-  const decoded = await getFirebaseAdmin().auth().verifyIdToken(match[1]);
-  const email = String(decoded.email || "").toLowerCase();
+  const decoded = await verifyFirebaseIdToken(match[1]);
+  const email = decoded.email;
 
   return {
     uid: decoded.uid,
@@ -62,5 +90,6 @@ module.exports = {
   requireAdmin,
   sendJson,
   sendError,
-  getAdminEmails
+  getAdminEmails,
+  isFirebaseTokenVerifierConfigured
 };

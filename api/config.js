@@ -1,6 +1,5 @@
-const { isFirebaseAdminConfigured } = require("./_lib/firebase-admin");
 const { isSupabaseConfigured } = require("./_lib/supabase");
-const { getAdminEmails, sendJson } = require("./_lib/auth");
+const { getAdminEmails, isFirebaseTokenVerifierConfigured, sendJson } = require("./_lib/auth");
 
 module.exports = function handler(req, res) {
   if (req.method !== "GET") {
@@ -20,7 +19,7 @@ module.exports = function handler(req, res) {
     ok: true,
     firebase,
     configured: Boolean(firebase.apiKey && firebase.authDomain && firebase.projectId && firebase.appId),
-    firebaseAdminConfigured: isFirebaseAdminConfigured(),
+    firebaseAdminConfigured: isFirebaseTokenVerifierConfigured(),
     supabaseConfigured: isSupabaseConfigured(),
     adminEmailsConfigured: getAdminEmails().length > 0,
     telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN)
