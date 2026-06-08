@@ -19,12 +19,16 @@
           <button type="button" data-page="home">Главная</button>
           <button type="button" data-page="registration">Регистрация</button>
           <button type="button" data-page="participants">Участники</button>
-          <button type="button" class="admin-nav hidden" data-page="admin">Админ-панель</button>
+          <button type="button" class="runner-nav hidden" data-page="cabinet">Мой кабинет</button>
+          <button type="button" class="admin-nav hidden" data-page="admin">Кабинет организатора</button>
         </nav>
         <section class="sidebar-panel account-panel">
           <span class="sidebar-label">Аккаунт</span>
-          <strong id="current-account">Вход не выполнен</strong>
-          <button type="button" class="sidebar-action" id="login-button">Войти в аккаунт</button>
+          <div class="account-identity">
+            <img class="account-photo hidden" id="account-photo" alt="">
+            <strong id="current-account">Вход не выполнен</strong>
+          </div>
+          <button type="button" class="sidebar-action" id="login-button">Войти через Google</button>
           <button type="button" class="sidebar-action hidden" id="logout-button">Выйти из аккаунта</button>
         </section>
       </div>
@@ -164,6 +168,27 @@
           </article>
         </section>
 
+        <section class="page" id="page-cabinet">
+          <article class="content-card runner-cabinet">
+            <header class="cabinet-header">
+              <div>
+                <p class="section-kicker">Личный кабинет бегуна</p>
+                <h1 id="cabinet-title">Мой старт</h1>
+                <p class="subtitle">Здесь собрана ваша заявка, подготовка к забегу и данные профиля.</p>
+              </div>
+              <button type="button" class="button secondary" data-page="home">На главную</button>
+            </header>
+            <section id="runner-cabinet-summary"></section>
+            <div class="runner-cabinet-grid">
+              <section class="cabinet-panel" id="runner-profile-editor"></section>
+              <aside class="cabinet-side">
+                <section class="cabinet-panel" id="runner-day-plan"></section>
+                <section class="cabinet-panel" id="runner-checklist"></section>
+              </aside>
+            </div>
+          </article>
+        </section>
+
         <section class="page" id="page-participants">
           <article class="content-card participants-card">
             <header class="participants-header">
@@ -233,8 +258,8 @@
             <header class="admin-header">
               <div>
                 <p class="section-kicker">Кабинет организатора</p>
-                <h1>Админ-панель участников</h1>
-                <p class="subtitle">Контакты, статусы допуска, редактирование данных и выгрузка списка перед стартом.</p>
+                <h1>Кабинет организатора</h1>
+                <p class="subtitle">Контакты, допуски, стартовые пакеты и контроль готовности Marathon Skills.</p>
               </div>
               <div class="button-row">
                 <button type="button" class="button primary" id="export-participants">Экспорт CSV</button>
@@ -246,6 +271,17 @@
               <article><span>Допущены</span><strong id="admin-active">0</strong></article>
               <article><span>Дисквалифицированы</span><strong id="admin-disqualified">0</strong></article>
               <article><span>Нужна проверка BMI</span><strong id="admin-attention">0</strong></article>
+              <article><span>Пакеты выданы</span><strong id="admin-checked-in">0</strong></article>
+            </section>
+            <section class="admin-ops">
+              <article class="ops-panel">
+                <header><p class="section-kicker">Стартовые коридоры</p><h2>Загрузка дистанций</h2></header>
+                <div class="distance-load" id="admin-distance-summary"></div>
+              </article>
+              <article class="ops-panel">
+                <header><p class="section-kicker">Подготовка площадки</p><h2>Чек-лист организатора</h2></header>
+                <div class="ops-checklist" id="admin-ops-checklist"></div>
+              </article>
             </section>
             <section class="admin-filters" aria-label="Фильтры администратора">
               <label><span>Поиск по данным</span><input id="admin-search" type="search" placeholder="Имя, email, телефон, город..." autocomplete="off"></label>
@@ -275,13 +311,19 @@
     <article class="login-card">
       <button type="button" class="login-close" id="close-login" aria-label="Закрыть">×</button>
       <header class="login-brand"><img src="assets/logo_mark.png" alt=""><div><h1>Marathon Skills</h1><p>Вход в личный кабинет</p></div></header>
-      <form id="login-form" novalidate>
+      <section class="google-login-panel" id="google-login-panel">
+        <h2>Вход через Google</h2>
+        <p>Авторизация работает через Google OAuth 2.0. После входа сайт загрузит ваши данные из Supabase через защищенный API Vercel.</p>
+        <button type="button" class="button primary google-button" id="google-login-button">Войти через Google</button>
+        <p class="form-message" id="cloud-auth-message"></p>
+      </section>
+      <form id="login-form" class="hidden legacy-auth" novalidate>
         <label>Логин<input id="login" maxlength="32" autocomplete="username"></label>
         <label>Пароль<input id="password" type="password" maxlength="32" autocomplete="current-password"></label>
         <p class="form-message" id="login-message"></p>
         <div class="button-row"><button class="button primary" type="submit">Войти</button><button class="button secondary" id="show-signup" type="button">Создать аккаунт</button></div>
       </form>
-      <form id="signup-form" class="hidden" novalidate>
+      <form id="signup-form" class="hidden legacy-auth" novalidate>
         <h2>Регистрация аккаунта бегуна</h2>
         <label>Имя<input id="signup-first-name" maxlength="32" autocomplete="given-name"></label>
         <label>Фамилия<input id="signup-last-name" maxlength="32" autocomplete="family-name"></label>
@@ -291,10 +333,11 @@
         <p class="form-message" id="signup-message"></p>
         <div class="button-row"><button class="button primary" type="submit">Зарегистрироваться</button><button class="button secondary" id="show-login" type="button">Назад ко входу</button></div>
       </form>
-      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ: admin / admin</p><p>Бегуны создают собственные аккаунты.</p></section>
+      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ определяется по Google email из переменной Vercel <code>ADMIN_EMAILS</code>.</p><p>Логин и пароль больше не используются: вход только через Google.</p></section>
     </article>
   </div>
   <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="auth.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
