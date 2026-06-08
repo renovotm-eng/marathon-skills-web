@@ -1,9 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
@@ -100,7 +101,7 @@ async function handleGoogleSignIn() {
 
   try {
     setAuthMessage("Открываю Google-вход...");
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch (error) {
     setAuthMessage(`Не удалось войти через Google: ${error.message}`, true);
   }
@@ -123,6 +124,10 @@ async function initCloudAuth() {
     }
 
     auth = getAuth(initializeApp(config.firebase));
+    getRedirectResult(auth).catch((error) => {
+      setAuthMessage(`Не удалось завершить Google-вход: ${error.message}`, true);
+    });
+
     onAuthStateChanged(auth, async (firebaseUser) => {
       currentUser = firebaseUser;
       currentToken = "";
