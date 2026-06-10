@@ -4,6 +4,7 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithPopup,
   signInWithRedirect,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
@@ -101,8 +102,18 @@ async function handleGoogleSignIn() {
 
   try {
     setAuthMessage("Открываю Google-вход...");
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch (error) {
+    if (["auth/popup-blocked", "auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/operation-not-supported-in-this-environment"].includes(error.code)) {
+      try {
+        setAuthMessage("Открываю Google-вход через переход...");
+        await signInWithRedirect(auth, provider);
+        return;
+      } catch (redirectError) {
+        setAuthMessage(`Не удалось войти через Google: ${redirectError.message}`, true);
+        return;
+      }
+    }
     setAuthMessage(`Не удалось войти через Google: ${error.message}`, true);
   }
 }
