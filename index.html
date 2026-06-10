@@ -28,7 +28,7 @@
             <img class="account-photo hidden" id="account-photo" alt="">
             <strong id="current-account">Вход не выполнен</strong>
           </div>
-          <button type="button" class="sidebar-action" id="login-button">Войти через Google</button>
+          <button type="button" class="sidebar-action" id="login-button">Войти</button>
           <button type="button" class="sidebar-action hidden" id="logout-button">Выйти из аккаунта</button>
         </section>
       </div>
@@ -318,7 +318,8 @@
         <p class="form-message" id="cloud-auth-message"></p>
       </section>
       <form id="login-form" class="hidden legacy-auth" novalidate>
-        <label>Логин<input id="login" maxlength="32" autocomplete="username"></label>
+        <h2>Обычный вход</h2>
+        <label>Email или логин<input id="login" maxlength="64" autocomplete="username"></label>
         <label>Пароль<input id="password" type="password" maxlength="32" autocomplete="current-password"></label>
         <p class="form-message" id="login-message"></p>
         <div class="button-row"><button class="button primary" type="submit">Войти</button><button class="button secondary" id="show-signup" type="button">Создать аккаунт</button></div>
@@ -327,13 +328,14 @@
         <h2>Регистрация аккаунта бегуна</h2>
         <label>Имя<input id="signup-first-name" maxlength="32" autocomplete="given-name"></label>
         <label>Фамилия<input id="signup-last-name" maxlength="32" autocomplete="family-name"></label>
+        <label>Email<input id="signup-email" type="email" maxlength="64" autocomplete="email"></label>
         <label>Логин<input id="signup-login" maxlength="32" autocomplete="username"></label>
         <label>Пароль<input id="signup-password" type="password" maxlength="32" autocomplete="new-password"></label>
         <label>Повторите пароль<input id="signup-password-repeat" type="password" maxlength="32" autocomplete="new-password"></label>
         <p class="form-message" id="signup-message"></p>
         <div class="button-row"><button class="button primary" type="submit">Зарегистрироваться</button><button class="button secondary" id="show-login" type="button">Назад ко входу</button></div>
       </form>
-      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ определяется по Google email из переменной Vercel <code>ADMIN_EMAILS</code>.</p><p>Логин и пароль больше не используются: вход только через Google.</p></section>
+      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ определяется по Google email из переменной Vercel <code>ADMIN_EMAILS</code>.</p><p>Обычный бегун может войти через Google или зарегистрироваться по email и паролю.</p></section>
     </article>
   </div>
   <div class="toast" id="toast" role="status"></div>

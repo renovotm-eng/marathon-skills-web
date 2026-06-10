@@ -195,6 +195,11 @@ tbody tr:hover, tbody tr.selected { background: #dceff5; }
 .google-login-panel h2 { margin: 0; color: var(--ink); font-size: 24px; }
 .google-login-panel p { margin: 0; color: var(--muted); line-height: 1.55; }
 .google-button { width: 100%; min-height: 52px; justify-content: center; }
+.legacy-auth { display: grid; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.legacy-auth h2 { margin: 0; font-size: 22px; }
+.legacy-auth label { display: grid; gap: 7px; color: var(--muted); font-size: 14px; font-weight: 800; }
+.legacy-auth input { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: var(--ink); background: #fff; font: inherit; }
+.legacy-auth input:focus { outline: 3px solid rgba(32, 152, 181, .18); border-color: var(--blue); }
 .form-message.success { color: #16805c; }
 .form-message.error { color: #c23b3b; }
 .toast { position: fixed; z-index: 80; right: 24px; bottom: 24px; max-width: 420px; padding: 14px 18px; border-radius: 14px; color: #fff; background: #25455e; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transform: translateY(12px); transition: .2s ease; }

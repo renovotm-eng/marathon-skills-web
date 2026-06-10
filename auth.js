@@ -1,12 +1,15 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
+  createUserWithEmailAndPassword,
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
-  signOut
+  signOut,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 let auth = null;
@@ -50,7 +53,7 @@ function makePublicUser(firebaseUser, serverUser = null) {
     lastName: names.lastName,
     photoURL: firebaseUser.photoURL || "",
     isAdmin: Boolean(serverUser?.isAdmin),
-    provider: "google"
+    provider: firebaseUser.providerData?.[0]?.providerId || "password"
   };
 }
 
@@ -123,6 +126,33 @@ async function handleGoogleSignOut() {
   await signOut(auth);
 }
 
+async function handleEmailSignIn(email, password) {
+  if (!auth) {
+    throw new Error("Firebase Auth пока не настроен.");
+  }
+  await signInWithEmailAndPassword(auth, email, password);
+}
+
+async function handleEmailSignUp({ email, password, firstName, lastName }) {
+  if (!auth) {
+    throw new Error("Firebase Auth пока не настроен.");
+  }
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
+  await updateProfile(credential.user, {
+    displayName: `${firstName} ${lastName}`.trim()
+  });
+  await credential.user.reload();
+  currentUser = auth.currentUser;
+  const serverState = await fetchServerState(currentUser);
+  dispatchAuthState({
+    configured: Boolean(config?.configured),
+    user: serverState.user,
+    participants: serverState.participants,
+    databaseReady: Boolean(config?.supabaseConfigured),
+    telegramReady: Boolean(config?.telegramConfigured)
+  });
+}
+
 async function initCloudAuth() {
   try {
     const response = await fetch("/api/config");
@@ -160,6 +190,8 @@ async function initCloudAuth() {
 
 window.MarathonCloud = {
   signIn: handleGoogleSignIn,
+  emailSignIn: handleEmailSignIn,
+  emailSignUp: handleEmailSignUp,
   signOut: handleGoogleSignOut,
   apiFetch,
   refresh: async () => {

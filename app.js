@@ -159,7 +159,7 @@ function updateParticipantAndOwnerAccount(id, updates) {
 
 function getCurrentRunnerAccount() {
   if (!state.session || state.session.isAdmin) return null;
-  if (state.session.authProvider === "google") {
+  if (state.session.authProvider) {
     return {
       firstName: state.session.firstName || "",
       lastName: state.session.lastName || "",
@@ -291,7 +291,7 @@ function applyCloudAuth(detail) {
     firstName: detail.user.firstName,
     lastName: detail.user.lastName,
     photoURL: detail.user.photoURL,
-    authProvider: "google"
+    authProvider: detail.user.provider || "firebase"
   };
 
   $("#login-overlay").classList.add("hidden");
@@ -398,15 +398,19 @@ function updateAccountUi() {
 function showLogin() {
   $("#google-login-panel").classList.remove("hidden");
   $("#signup-form").classList.add("hidden");
-  $("#login-form").classList.add("hidden");
+  $("#login-form").classList.remove("hidden");
   $("#admin-hint").classList.remove("hidden");
   $("#signup-message").textContent = "";
   $("#login-message").textContent = "";
 }
 
 function showSignup() {
-  showLogin();
-  toast("Регистрация аккаунта теперь выполняется через Google.", true);
+  $("#google-login-panel").classList.add("hidden");
+  $("#login-form").classList.add("hidden");
+  $("#signup-form").classList.remove("hidden");
+  $("#admin-hint").classList.add("hidden");
+  $("#signup-message").textContent = "";
+  $("#login-message").textContent = "";
 }
 
 function openLogin(message = "") {
@@ -498,6 +502,16 @@ async function verifyPassword(account, password) {
   }
 }
 
+function getAuthErrorMessage(error) {
+  const code = error?.code || "";
+  if (code === "auth/email-already-in-use") return "Этот email уже зарегистрирован. Войдите или используйте другой email.";
+  if (code === "auth/invalid-email") return "Введите корректный email.";
+  if (code === "auth/invalid-credential" || code === "auth/user-not-found" || code === "auth/wrong-password") return "Неверный email или пароль.";
+  if (code === "auth/weak-password") return "Пароль должен содержать минимум 6 символов.";
+  if (code === "auth/operation-not-allowed") return "Обычный вход еще не включен в Firebase. Включите Email/Password в Authentication.";
+  return error?.message || "Не удалось выполнить вход.";
+}
+
 function clearSessionDraft() {
   $("#registration-form").reset();
   setRegistrationDefaults();
@@ -513,7 +527,7 @@ function clearSessionDraft() {
 }
 
 async function logout() {
-  if (state.session?.authProvider === "google" && window.MarathonCloud?.signOut) {
+  if (state.session?.authProvider && window.MarathonCloud?.signOut) {
     try {
       await window.MarathonCloud.signOut();
     } catch (error) {
@@ -533,14 +547,24 @@ async function logout() {
 
 async function handleLogin(event) {
   event.preventDefault();
-  if (window.MarathonCloud?.signIn) {
-    await window.MarathonCloud.signIn();
-    return;
-  }
   const login = $("#login").value.trim();
   const password = $("#password").value;
   const message = $("#login-message");
   message.className = "form-message";
+
+  if (isValidEmail(login) && window.MarathonCloud?.emailSignIn) {
+    try {
+      message.textContent = "Выполняю вход...";
+      await window.MarathonCloud.emailSignIn(login.toLowerCase(), password);
+      message.textContent = "";
+      $("#password").value = "";
+      return;
+    } catch (error) {
+      message.textContent = getAuthErrorMessage(error);
+      message.classList.add("error");
+      return;
+    }
+  }
 
   if (login.toLowerCase() === "admin" && password === "admin") {
     state.session = { isAdmin: true, login: "admin", firstName: "Админ", lastName: "" };
@@ -562,17 +586,21 @@ async function handleLogin(event) {
 
 async function handleSignup(event) {
   event.preventDefault();
-  toast("Регистрация аккаунта теперь выполняется через Google.", true);
-  return;
   const firstName = $("#signup-first-name").value.trim();
   const lastName = $("#signup-last-name").value.trim();
+  const email = $("#signup-email").value.trim().toLowerCase();
   const login = $("#signup-login").value.trim();
   const password = $("#signup-password").value;
   const passwordRepeat = $("#signup-password-repeat").value;
   const message = $("#signup-message");
+  message.className = "form-message";
 
   if (!isCapitalizedName(firstName) || !isCapitalizedName(lastName)) {
     message.textContent = "Имя и фамилия должны начинаться с заглавной буквы и содержать только буквы, пробел или дефис.";
+    return;
+  }
+  if (!isValidEmail(email)) {
+    message.textContent = "Введите корректный email.";
     return;
   }
   if (!/^[A-Za-z0-9_.-]{3,32}$/.test(login)) {
@@ -583,8 +611,8 @@ async function handleSignup(event) {
     message.textContent = "Такой логин уже занят.";
     return;
   }
-  if (password.length < 4) {
-    message.textContent = "Пароль должен содержать минимум 4 символа.";
+  if (password.length < 6) {
+    message.textContent = "Пароль должен содержать минимум 6 символов.";
     return;
   }
   if (password !== passwordRepeat) {
@@ -592,8 +620,22 @@ async function handleSignup(event) {
     return;
   }
 
+  if (window.MarathonCloud?.emailSignUp) {
+    try {
+      message.textContent = "Создаю аккаунт...";
+      await window.MarathonCloud.emailSignUp({ email, password, firstName, lastName });
+      $("#signup-form").reset();
+      message.textContent = "";
+      return;
+    } catch (error) {
+      message.textContent = getAuthErrorMessage(error);
+      message.classList.add("error");
+      return;
+    }
+  }
+
   const passwordData = await createPassword(password);
-  state.accounts.push({ firstName, lastName, login, ...passwordData });
+  state.accounts.push({ firstName, lastName, login, email, ...passwordData });
   if (!saveJson(STORAGE.accounts, state.accounts)) {
     state.accounts.pop();
     return;
@@ -1287,6 +1329,7 @@ function setupEvents() {
   });
   $("#city").addEventListener("blur", (event) => event.target.value = normalizeName(event.target.value));
   $("#email").addEventListener("blur", (event) => event.target.value = event.target.value.trim().toLowerCase());
+  $("#signup-email").addEventListener("blur", (event) => event.target.value = event.target.value.trim().toLowerCase());
   ["#height", "#weight"].forEach((selector) => {
     $(selector).addEventListener("input", () => updateBmiPreview(false));
     $(selector).addEventListener("input", (event) => event.target.value = event.target.value.replace(/[^\d.,]/g, "").replace(/([.,].*)[.,]/g, "$1"));
