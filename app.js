@@ -364,8 +364,12 @@ function showPage(name) {
   if (name === "cabinet" && state.session?.isAdmin) {
     return showPage("admin");
   }
+  const targetPage = $(`#page-${name}`);
+  if (!targetPage) return;
   $$(".page").forEach((page) => page.classList.remove("active"));
-  $(`#page-${name}`).classList.add("active");
+  targetPage.classList.add("active");
+  targetPage.scrollTo({ top: 0, behavior: "smooth" });
+  $$("[data-page]").forEach((button) => button.classList.toggle("active", button.dataset.page === name));
   if (name === "registration" && state.session && !state.session.isAdmin) {
     if (!$("#first-name").value && !$("#last-name").value) {
       $("#first-name").value = state.session.firstName;
@@ -1445,6 +1449,7 @@ function init() {
   resetBmiPreview();
   updateAccountUi();
   updateCountdown();
+  $$("[data-page]").forEach((button) => button.classList.toggle("active", button.dataset.page === "home"));
   setInterval(updateCountdown, 1000);
   renderParticipants();
   if (location.pathname === "/login") openLogin("Войдите через Google, чтобы открыть защищенный раздел.");
