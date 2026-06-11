@@ -143,9 +143,23 @@ async function seedDatabase(supabase, statuses) {
   const available = new Set(statuses.filter((status) => status.ok).map((status) => status.relation));
   const result = {};
 
-  if (available.has("admin_tasks")) result.adminTasks = await seedAdminTasks(supabase);
-  if (available.has("app_settings")) result.appSettings = await seedAppSettings(supabase);
-  if (available.has("bot_faq")) result.faqInserted = await seedFaq(supabase);
+  async function runSeed(name, action) {
+    try {
+      result[name] = {
+        ok: true,
+        affected: await action()
+      };
+    } catch (error) {
+      result[name] = {
+        ok: false,
+        error: error.message
+      };
+    }
+  }
+
+  if (available.has("admin_tasks")) await runSeed("adminTasks", () => seedAdminTasks(supabase));
+  if (available.has("app_settings")) await runSeed("appSettings", () => seedAppSettings(supabase));
+  if (available.has("bot_faq")) await runSeed("botFaq", () => seedFaq(supabase));
 
   return result;
 }
@@ -172,7 +186,7 @@ module.exports = async function handler(req, res) {
     const missing = statuses.filter((status) => !status.ok).map((status) => status.relation);
 
     return sendJson(res, 200, {
-      ok: missing.length === 0,
+      ok: missing.length === 0 && (!seedResult || Object.values(seedResult).every((item) => item.ok)),
       seeded: Boolean(seedResult),
       seedResult,
       missing,
