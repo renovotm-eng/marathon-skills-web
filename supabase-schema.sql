@@ -91,6 +91,10 @@ create table if not exists support_messages (
   updated_at timestamptz not null default now()
 );
 
+alter table support_messages
+  add column if not exists answered_at timestamptz,
+  add column if not exists answered_by_chat_id text not null default '';
+
 create index if not exists support_messages_status_idx on support_messages (status);
 create index if not exists support_messages_created_at_idx on support_messages (created_at desc);
 

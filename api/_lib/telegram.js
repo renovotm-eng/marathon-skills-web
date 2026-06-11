@@ -23,7 +23,8 @@ async function sendTelegramMessage(chatId, text, options = {}) {
       chat_id: chatId,
       text,
       parse_mode: options.parseMode,
-      disable_web_page_preview: true
+      disable_web_page_preview: true,
+      reply_markup: options.replyMarkup
     })
   });
 
@@ -32,6 +33,30 @@ async function sendTelegramMessage(chatId, text, options = {}) {
     error.statusCode = 502;
     throw error;
   }
+}
+
+async function callTelegramMethod(method, payload = {}) {
+  const token = getTelegramToken();
+  if (!token) {
+    const error = new Error("TELEGRAM_BOT_TOKEN is not configured");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.ok === false) {
+    const error = new Error(data.description || `Telegram API returned ${response.status}`);
+    error.statusCode = 502;
+    throw error;
+  }
+
+  return data;
 }
 
 async function notifyTelegramAdmins(text) {
@@ -51,6 +76,7 @@ async function notifyTelegramAdmins(text) {
 }
 
 module.exports = {
+  callTelegramMethod,
   isTelegramConfigured,
   notifyTelegramAdmins,
   sendTelegramMessage

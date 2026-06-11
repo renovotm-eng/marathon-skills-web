@@ -44,15 +44,22 @@ rodion@example.com,teacher@example.com
 3. Выполните файл `supabase-schema.sql`.
 4. В Vercel добавьте `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY`.
 
-## Telegram webhook
+## Telegram bot
 
-После деплоя и добавления `TELEGRAM_BOT_TOKEN` выполните:
+В Vercel должны быть добавлены переменные:
 
-```powershell
-$token = "ВАШ_TELEGRAM_BOT_TOKEN"
-$url = "https://marathon-skills-web.vercel.app/api/telegram-webhook"
-Invoke-RestMethod "https://api.telegram.org/bot$token/setWebhook?url=$url"
+```text
+TELEGRAM_BOT_TOKEN=токен_из_BotFather
+TELEGRAM_ADMIN_SECRET=секретный_код_для_админа
 ```
+
+После деплоя откройте защищенную ссылку настройки:
+
+```text
+https://marathon-skills-web.vercel.app/api/telegram-webhook?setup=TELEGRAM_ADMIN_SECRET
+```
+
+Она сама подключит webhook и меню команд Telegram. Токен в ссылку вставлять не нужно.
 
 Бот принимает фамилию и отвечает:
 
@@ -104,8 +111,22 @@ TELEGRAM_ADMIN_SECRET=любой_секретный_код
 ```text
 /help
 /status Фамилия
-дистанции
-документы
-регистрация
-контакты
+/distances
+/documents
+/contacts
 ```
+
+Админ-команды бота:
+
+```text
+/admin секретный_код
+/admin_status
+/stats
+/events
+/support
+/runner Фамилия
+/reply CHAT_ID текст ответа
+/admin_off
+```
+
+Если участник пишет нестандартный вопрос, бот сохраняет его в `support_messages`, пересылает админам и позволяет ответить командой `/reply`.
