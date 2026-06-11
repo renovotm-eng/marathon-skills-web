@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -33,7 +33,9 @@ const state = {
   participantFilters: { query: "", sortBy: "registrationDate", direction: "desc" },
   adminFilters: { query: "", status: "all", distance: "all" },
   adminTasks: loadJson(STORAGE.adminTasks, []),
+  siteEvents: [],
   cloud: { configured: false, ready: false, syncing: false },
+  lastTrackedLoginKey: "",
   crop: { image: null, x: 0, y: 0, width: 0, height: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 }
 };
 
@@ -205,6 +207,42 @@ async function cloudApi(path, options = {}) {
   return payload;
 }
 
+async function trackSiteEvent(type, metadata = {}) {
+  if (!state.session?.authProvider || !window.MarathonCloud?.apiFetch) return;
+  try {
+    const payload = await cloudApi("/api/events", {
+      method: "POST",
+      body: {
+        type,
+        provider: state.session.authProvider,
+        metadata
+      }
+    });
+    if (state.session.isAdmin && payload?.event) {
+      state.siteEvents = [payload.event, ...state.siteEvents].slice(0, 12);
+      renderAdminEvents();
+    }
+  } catch (error) {
+    console.warn("Event tracking is unavailable:", error.message);
+  }
+}
+
+function participantEventMeta(participant) {
+  if (!participant) return {};
+  return {
+    participantId: participant.id,
+    fullName: `${participant.firstName} ${participant.lastName}`.trim(),
+    distance: participant.distance,
+    bibNumber: participant.bibNumber,
+    status: participant.status,
+    email: participant.email,
+    phone: participant.phone,
+    country: participant.country,
+    city: participant.city,
+    bmi: participant.bmi
+  };
+}
+
 async function loadCloudState(participants = null) {
   if (!state.session?.authProvider) return;
   try {
@@ -219,6 +257,8 @@ async function loadCloudState(participants = null) {
         state.adminTasks = tasksPayload.tasks.filter((id) => adminChecklistItems.some(([itemId]) => itemId === id));
         saveJson(STORAGE.adminTasks, state.adminTasks);
       }
+      const eventsPayload = await cloudApi("/api/events?limit=12");
+      state.siteEvents = eventsPayload?.events || [];
     }
     renderParticipants();
     if (state.session.isAdmin) renderAdminDashboard();
@@ -297,6 +337,14 @@ function applyCloudAuth(detail) {
   $("#login-overlay").classList.add("hidden");
   if (location.pathname === "/login") history.replaceState(null, "", "/");
   updateAccountUi();
+  const loginKey = `${state.session.login}:${new Date().toISOString().slice(0, 16)}`;
+  if (state.lastTrackedLoginKey !== loginKey) {
+    state.lastTrackedLoginKey = loginKey;
+    trackSiteEvent("user_login", {
+      provider: state.session.authProvider,
+      role: state.session.isAdmin ? "admin" : "runner"
+    });
+  }
   loadCloudState(detail.participants || null);
   showPage(state.session.isAdmin ? "admin" : "cabinet");
 }
@@ -628,6 +676,11 @@ async function handleSignup(event) {
     try {
       message.textContent = "Создаю аккаунт...";
       await window.MarathonCloud.emailSignUp({ email, password, firstName, lastName });
+      await trackSiteEvent("account_signup", {
+        fullName: `${firstName} ${lastName}`,
+        email,
+        login
+      });
       $("#signup-form").reset();
       message.textContent = "";
       return;
@@ -777,6 +830,7 @@ function saveParticipant() {
     ? state.participants.map((item) => item.id === existingParticipant.id ? participant : item)
     : [...state.participants, participant];
   if (!persistParticipants(nextParticipants)) return;
+  trackSiteEvent(existingParticipant ? "race_update" : "race_registration", participantEventMeta(participant));
   clearSessionDraft();
   renderParticipants();
   showPage(state.session?.isAdmin ? "participants" : "cabinet");
@@ -1070,6 +1124,7 @@ function renderAdminDashboard() {
   $("#admin-checked-in").textContent = checkedIn;
   renderAdminDistanceSummary();
   renderAdminOpsChecklist();
+  renderAdminEvents();
   $("#admin-participants-body").innerHTML = participants.length ? participants.map((participant) => `
     <tr data-id="${participant.id}" class="${participant.id === state.selectedParticipantId ? "selected" : ""}">
       <td><div class="admin-runner">${participant.photo ? `<img class="runner-photo" src="${participant.photo}" alt="">` : `<span class="runner-photo-placeholder"></span>`}<span><strong>${escapeHtml(participant.firstName)} ${escapeHtml(participant.lastName)}</strong><small>${escapeHtml(participant.country)}, ${escapeHtml(participant.city)}</small></span></div></td>
@@ -1079,6 +1134,27 @@ function renderAdminDashboard() {
       <td><button type="button" class="table-action" data-admin-select="${participant.id}">Открыть</button></td>
     </tr>`).join("") : `<tr class="empty-row"><td colspan="5">По выбранным фильтрам участники не найдены.</td></tr>`;
   renderAdminDetail();
+}
+
+function renderAdminEvents() {
+  const feed = $("#admin-event-feed");
+  if (!feed) return;
+  feed.innerHTML = state.siteEvents.length ? state.siteEvents.map((event) => {
+    const metadata = event.metadata || {};
+    const details = [
+      metadata.fullName,
+      metadata.distance,
+      metadata.bibNumber,
+      metadata.status
+    ].filter(Boolean).join(" | ");
+    return `
+      <article>
+        <strong>${escapeHtml(event.event_title || event.event_type)}</strong>
+        <span>${escapeHtml(event.user_email || event.user_name || "Пользователь")}</span>
+        ${details ? `<small>${escapeHtml(details)}</small>` : ""}
+        <time>${escapeHtml(new Date(event.created_at).toLocaleString("ru-RU"))}</time>
+      </article>`;
+  }).join("") : `<article class="empty-event"><strong>Событий пока нет</strong><span>После входов, регистраций и действий админа здесь появится журнал.</span></article>`;
 }
 
 function renderAdminDistanceSummary() {
@@ -1100,6 +1176,7 @@ function toggleAdminTask(id, checked) {
   state.adminTasks = checked ? [...new Set([...state.adminTasks, id])] : state.adminTasks.filter((item) => item !== id);
   if (!saveJson(STORAGE.adminTasks, state.adminTasks)) state.adminTasks = previousTasks;
   syncCloudAdminTasks();
+  trackSiteEvent("admin_tasks_update", { taskId: id, completed: checked });
   renderAdminOpsChecklist();
 }
 
@@ -1173,6 +1250,7 @@ function saveAdminParticipant(event) {
     adminNote: data.adminNote.trim(),
     checkInStatus: data.status === "disqualified" ? "pending" : participant.checkInStatus
   })) return;
+  trackSiteEvent("participant_update", participantEventMeta(getParticipantById(participant.id)));
   renderParticipants();
   renderAdminDashboard();
   toast("Карточка участника обновлена.");
@@ -1187,6 +1265,7 @@ function toggleParticipantDisqualification() {
     disqualificationReason: isRestoring ? "" : participant.disqualificationReason || "Решение организатора",
     checkInStatus: isRestoring ? participant.checkInStatus : "pending"
   })) return;
+  trackSiteEvent(isRestoring ? "restore_access" : "disqualification", participantEventMeta(getParticipantById(participant.id)));
   renderParticipants();
   renderAdminDashboard();
   toast(isRestoring ? "Участник снова допущен к старту." : "Участник дисквалифицирован.");
@@ -1198,6 +1277,7 @@ function toggleParticipantCheckIn() {
   if (participant.status === "disqualified") return toast("Сначала верните участнику допуск.", true);
   const checkedIn = participant.checkInStatus === "checked-in";
   if (!updateParticipant(participant.id, { checkInStatus: checkedIn ? "pending" : "checked-in" })) return;
+  trackSiteEvent(checkedIn ? "check_in_cancel" : "check_in", participantEventMeta(getParticipantById(participant.id)));
   renderAdminDashboard();
   toast(checkedIn ? "Выдача пакета отменена." : "Стартовый пакет отмечен как выданный.");
 }
@@ -1225,6 +1305,7 @@ function exportParticipantsCsv() {
   link.download = `marathon-skills-participants-${formatDateForInput(new Date())}.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
+  trackSiteEvent("export_csv", { count: state.participants.length });
   toast("CSV-файл со списком участников подготовлен.");
 }
 
@@ -1235,6 +1316,7 @@ function deleteSelectedParticipant() {
   if (!participant || !confirm(`Удалить участника ${participant.firstName} ${participant.lastName}?`)) return;
   const nextParticipants = state.participants.filter((item) => item.id !== state.selectedParticipantId);
   if (!persistParticipants(nextParticipants)) return;
+  trackSiteEvent("participant_delete", participantEventMeta(participant));
   deleteCloudParticipant(state.selectedParticipantId);
   state.selectedParticipantId = null;
   renderParticipants();
@@ -1244,7 +1326,9 @@ function deleteSelectedParticipant() {
 function clearParticipants() {
   if (!state.session?.isAdmin) return toast("Очищать список может только администратор.", true);
   if (!state.participants.length || !confirm("Удалить всех участников из списка?")) return;
+  const count = state.participants.length;
   if (!persistParticipants([])) return;
+  trackSiteEvent("participant_clear", { count });
   clearCloudParticipants();
   state.selectedParticipantId = null;
   renderParticipants();

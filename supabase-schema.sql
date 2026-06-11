@@ -1,4 +1,4 @@
-create extension if not exists "pgcrypto";
+﻿create extension if not exists "pgcrypto";
 
 create table if not exists participants (
   id uuid primary key default gen_random_uuid(),
@@ -33,6 +33,21 @@ create index if not exists participants_last_name_idx on participants (lower(las
 create index if not exists participants_distance_idx on participants (distance);
 create index if not exists participants_status_idx on participants (status);
 
+create table if not exists user_profiles (
+  user_id text primary key,
+  email text not null default '',
+  display_name text not null default '',
+  photo_url text not null default '',
+  role text not null default 'runner' check (role in ('runner', 'admin')),
+  provider text not null default 'firebase',
+  last_login_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists user_profiles_email_idx on user_profiles (lower(email));
+create index if not exists user_profiles_role_idx on user_profiles (role);
+
 create table if not exists admin_tasks (
   id text primary key,
   completed boolean not null default false,
@@ -47,6 +62,46 @@ values
   ('volunteers', false),
   ('water', false)
 on conflict (id) do nothing;
+
+create table if not exists site_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null default '',
+  user_email text not null default '',
+  user_name text not null default '',
+  user_role text not null default 'runner',
+  event_type text not null,
+  event_title text not null default '',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists site_events_created_at_idx on site_events (created_at desc);
+create index if not exists site_events_user_id_idx on site_events (user_id);
+create index if not exists site_events_event_type_idx on site_events (event_type);
+
+create table if not exists support_messages (
+  id uuid primary key default gen_random_uuid(),
+  chat_id text not null default '',
+  username text not null default '',
+  first_name text not null default '',
+  last_name text not null default '',
+  message text not null default '',
+  status text not null default 'new' check (status in ('new', 'answered', 'closed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists support_messages_status_idx on support_messages (status);
+create index if not exists support_messages_created_at_idx on support_messages (created_at desc);
+
+create table if not exists telegram_admin_chats (
+  chat_id text primary key,
+  title text not null default '',
+  username text not null default '',
+  enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
 create or replace view marathon_bot_lookup as
 select

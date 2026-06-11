@@ -58,7 +58,7 @@ function makePublicUser(firebaseUser, serverUser = null) {
 }
 
 async function apiFetch(path, options = {}) {
-  if (!currentUser) throw new Error("Google authorization is required");
+  if (!currentUser) throw new Error("Authorization is required");
   currentToken = await currentUser.getIdToken();
 
   const headers = new Headers(options.headers || {});

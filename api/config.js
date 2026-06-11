@@ -22,6 +22,7 @@ module.exports = function handler(req, res) {
     firebaseAdminConfigured: isFirebaseTokenVerifierConfigured(),
     supabaseConfigured: isSupabaseConfigured(),
     adminEmailsConfigured: getAdminEmails().length > 0,
-    telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN)
+    telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    telegramAdminSecretConfigured: Boolean(process.env.TELEGRAM_ADMIN_SECRET)
   });
 };

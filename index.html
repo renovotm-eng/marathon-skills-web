@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -283,6 +283,13 @@
                 <div class="ops-checklist" id="admin-ops-checklist"></div>
               </article>
             </section>
+            <section class="admin-events">
+              <header>
+                <div><p class="section-kicker">Мониторинг</p><h2>Последние действия</h2></div>
+                <p>Telegram: напишите боту <code>/admin КОД</code>, чтобы получать уведомления.</p>
+              </header>
+              <div class="event-feed" id="admin-event-feed"></div>
+            </section>
             <section class="admin-filters" aria-label="Фильтры администратора">
               <label><span>Поиск по данным</span><input id="admin-search" type="search" placeholder="Имя, email, телефон, город..." autocomplete="off"></label>
               <label><span>Статус допуска</span><select id="admin-status-filter"><option value="all">Все статусы</option><option value="active">Допущены</option><option value="disqualified">Дисквалифицированы</option></select></label>
@@ -308,34 +315,38 @@
   </div>
 
   <div class="login-overlay hidden" id="login-overlay">
-    <article class="login-card">
+    <article class="login-card auth-card">
       <button type="button" class="login-close" id="close-login" aria-label="Закрыть">×</button>
-      <header class="login-brand"><img src="assets/logo_mark.png" alt=""><div><h1>Marathon Skills</h1><p>Вход в личный кабинет</p></div></header>
-      <section class="google-login-panel" id="google-login-panel">
-        <h2>Вход через Google</h2>
-        <p>Авторизация работает через Google OAuth 2.0. После входа сайт загрузит ваши данные из Supabase через защищенный API Vercel.</p>
+      <header class="login-brand auth-brand">
+        <img src="assets/logo_mark.png" alt="">
+        <div><h1>Marathon Skills</h1><p>Личный кабинет</p></div>
+      </header>
+      <section class="google-login-panel auth-panel" id="google-login-panel">
+        <h2>Быстрый вход</h2>
         <button type="button" class="button primary google-button" id="google-login-button">Войти через Google</button>
         <p class="form-message" id="cloud-auth-message"></p>
       </section>
-      <form id="login-form" class="hidden legacy-auth" novalidate>
-        <h2>Обычный вход</h2>
+      <form id="login-form" class="hidden legacy-auth auth-panel" novalidate>
+        <h2>Вход по email</h2>
         <label>Email или логин<input id="login" maxlength="64" autocomplete="username"></label>
         <label>Пароль<input id="password" type="password" maxlength="32" autocomplete="current-password"></label>
         <p class="form-message" id="login-message"></p>
         <div class="button-row"><button class="button primary" type="submit">Войти</button><button class="button secondary" id="show-signup" type="button">Создать аккаунт</button></div>
       </form>
-      <form id="signup-form" class="hidden legacy-auth" novalidate>
-        <h2>Регистрация аккаунта бегуна</h2>
-        <label>Имя<input id="signup-first-name" maxlength="32" autocomplete="given-name"></label>
-        <label>Фамилия<input id="signup-last-name" maxlength="32" autocomplete="family-name"></label>
-        <label>Email<input id="signup-email" type="email" maxlength="64" autocomplete="email"></label>
-        <label>Логин<input id="signup-login" maxlength="32" autocomplete="username"></label>
-        <label>Пароль<input id="signup-password" type="password" maxlength="32" autocomplete="new-password"></label>
-        <label>Повторите пароль<input id="signup-password-repeat" type="password" maxlength="32" autocomplete="new-password"></label>
+      <form id="signup-form" class="hidden legacy-auth auth-panel signup-panel" novalidate>
+        <h2>Регистрация</h2>
+        <div class="signup-grid">
+          <label>Имя<input id="signup-first-name" maxlength="32" autocomplete="given-name"></label>
+          <label>Фамилия<input id="signup-last-name" maxlength="32" autocomplete="family-name"></label>
+          <label>Email<input id="signup-email" type="email" maxlength="64" autocomplete="email"></label>
+          <label>Логин<input id="signup-login" maxlength="32" autocomplete="username"></label>
+          <label>Пароль<input id="signup-password" type="password" maxlength="32" autocomplete="new-password"></label>
+          <label>Повторите пароль<input id="signup-password-repeat" type="password" maxlength="32" autocomplete="new-password"></label>
+        </div>
         <p class="form-message" id="signup-message"></p>
-        <div class="button-row"><button class="button primary" type="submit">Зарегистрироваться</button><button class="button secondary" id="show-login" type="button">Назад ко входу</button></div>
+        <div class="button-row"><button class="button primary" type="submit">Зарегистрироваться</button><button class="button secondary" id="show-login" type="button">Назад</button></div>
       </form>
-      <section class="admin-hint" id="admin-hint"><strong>Администратор</strong><p>Админ определяется по Google email из переменной Vercel <code>ADMIN_EMAILS</code>.</p><p>Обычный бегун может войти через Google или зарегистрироваться по email и паролю.</p></section>
+      <section class="admin-hint compact" id="admin-hint"><strong>Админ</strong><p>Вход по email из <code>ADMIN_EMAILS</code> или через тестовый логин <code>admin</code>.</p></section>
     </article>
   </div>
   <div class="toast" id="toast" role="status"></div>
