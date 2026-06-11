@@ -107,6 +107,66 @@ create table if not exists telegram_admin_chats (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists app_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+insert into app_settings (key, value)
+values
+  ('marathon_info', jsonb_build_object(
+    'name', 'Marathon Skills',
+    'year', 2026,
+    'start_time', '09:00',
+    'distances', jsonb_build_array('5 км', '10 км', '21 км', '42 км')
+  ))
+on conflict (key) do update
+set value = excluded.value,
+    updated_at = now();
+
+create table if not exists bot_faq (
+  id uuid primary key default gen_random_uuid(),
+  intent text not null default '',
+  question text not null default '',
+  answer text not null default '',
+  keywords text[] not null default array[]::text[],
+  enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists bot_faq_enabled_idx on bot_faq (enabled);
+create index if not exists bot_faq_intent_idx on bot_faq (intent);
+
+insert into bot_faq (intent, question, answer, keywords)
+values
+  ('distances', 'Какие дистанции есть на марафоне?', 'Доступны дистанции 5 км, 10 км, 21 км и 42 км. 5 км подходит новичкам, 10 км - любителям, 21 км - полумарафон, 42 км - полный марафон.', array['дистанции','дистанция','км','забег','маршрут']),
+  ('documents', 'Какие документы нужны на старт?', 'Возьмите паспорт или удостоверение личности, телефон, удобную форму, воду и медицинскую справку, если она требуется организатором.', array['документы','паспорт','справка','медицинская']),
+  ('registration', 'Как зарегистрироваться?', 'Войдите на сайт через Google или email, заполните анкету, выберите дистанцию, рассчитайте BMI и сохраните заявку.', array['регистрация','заявка','анкета','аккаунт']),
+  ('bmi', 'Что такое BMI?', 'BMI - индекс массы тела. На сайте он считается по формуле: вес / рост² и помогает примерно оценить состояние тела перед забегом.', array['bmi','имт','рост','вес','индекс']),
+  ('contacts', 'Как связаться с организатором?', 'Напишите вопрос прямо в этот Telegram-чат. Бот сохранит обращение и передаст его администратору Marathon Skills.', array['контакты','помощь','оператор','поддержка']),
+  ('schedule', 'Когда проходит старт?', 'Marathon Skills проводится в 2026 году. Сбор участников начинается в 09:00, стартовые пакеты выдаются заранее.', array['старт','время','расписание','год'])
+on conflict do nothing;
+
+create table if not exists bot_interactions (
+  id uuid primary key default gen_random_uuid(),
+  chat_id text not null default '',
+  username text not null default '',
+  first_name text not null default '',
+  last_name text not null default '',
+  user_message text not null default '',
+  bot_answer text not null default '',
+  intent text not null default '',
+  confidence numeric(4, 2) not null default 0,
+  is_admin_chat boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists bot_interactions_chat_id_idx on bot_interactions (chat_id);
+create index if not exists bot_interactions_created_at_idx on bot_interactions (created_at desc);
+create index if not exists bot_interactions_intent_idx on bot_interactions (intent);
+
 create or replace view marathon_bot_lookup as
 select
   last_name as surname,

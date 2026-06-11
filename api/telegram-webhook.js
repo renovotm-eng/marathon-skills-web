@@ -7,6 +7,7 @@ const {
   notifyTelegramAdmins,
   sendTelegramMessage
 } = require("./_lib/telegram");
+const { getAssistantAnswer, logBotInteraction, normalizeText } = require("./_lib/marathon-ai");
 
 const BOT_COMMANDS = [
   { command: "help", description: "Помощь и список команд" },
@@ -79,6 +80,29 @@ function menuKeyboard(isAdmin) {
   };
 }
 
+function isKnownAiQuestion(text) {
+  const value = normalizeText(text);
+  const keywords = [
+    "дистанция",
+    "дистанции",
+    "документы",
+    "справка",
+    "регистрация",
+    "заявка",
+    "контакты",
+    "помощь",
+    "оператор",
+    "bmi",
+    "имт",
+    "рост",
+    "вес",
+    "старт",
+    "время",
+    "расписание"
+  ];
+  return keywords.some((keyword) => value.includes(keyword));
+}
+
 function helpText(isAdmin = false) {
   const lines = [
     "Привет! Я бот Marathon Skills.",
@@ -110,55 +134,6 @@ function helpText(isAdmin = false) {
   return lines.join("\n");
 }
 
-function clientAnswer(text) {
-  const lower = text.toLocaleLowerCase("ru");
-
-  if (/^\/distances(@\w+)?$/i.test(text) || lower.includes("дистанц")) {
-    return [
-      "Дистанции Marathon Skills:",
-      "5 км - легкий старт для новичков",
-      "10 км - уверенный городской забег",
-      "21 км - полумарафон",
-      "42 км - полный марафон",
-      "",
-      "В личном кабинете можно выбрать дистанцию и сохранить заявку."
-    ].join("\n");
-  }
-
-  if (/^\/documents(@\w+)?$/i.test(text) || lower.includes("документ") || lower.includes("справк")) {
-    return [
-      "На старт возьмите:",
-      "паспорт или удостоверение личности",
-      "телефон",
-      "удобную форму и обувь",
-      "воду",
-      "медицинскую справку, если ее требует организатор"
-    ].join("\n");
-  }
-
-  if (lower.includes("регистрац") || lower.includes("заявк")) {
-    return "Регистрация проходит на сайте Marathon Skills: войдите через Google или email, заполните анкету, рассчитайте BMI и сохраните заявку.";
-  }
-
-  if (/^\/contacts(@\w+)?$/i.test(text) || lower.includes("контакт") || lower.includes("помощ") || lower.includes("оператор")) {
-    return "Напишите вопрос прямо сюда. Я сохраню обращение и передам его администратору Marathon Skills.";
-  }
-
-  if (lower.includes("старт") || lower.includes("время") || lower.includes("год")) {
-    return "Marathon Skills проводится в 2026 году. Сбор участников начинается в 09:00, стартовые пакеты выдаются заранее через кабинет администратора.";
-  }
-
-  if (lower.includes("bmi") || lower.includes("имт") || lower.includes("рост") || lower.includes("вес")) {
-    return "BMI рассчитывается на сайте по формуле: вес / рост². После расчета сайт показывает категорию состояния тела и сохраняет результат в заявке.";
-  }
-
-  if (/^(привет|здравствуй|здравствуйте|начать)$/iu.test(lower)) {
-    return helpText(false);
-  }
-
-  return "";
-}
-
 async function isAdminChat(chatId) {
   if (!isSupabaseConfigured()) return false;
   const supabase = getSupabase();
@@ -171,6 +146,32 @@ async function isAdminChat(chatId) {
 
   if (error) throw error;
   return Boolean(data);
+}
+
+async function answerWithAi(message, text, admin) {
+  const supabase = getSupabase();
+  const from = message.from || {};
+  const result = await getAssistantAnswer({ supabase, text });
+
+  await logBotInteraction(supabase, {
+    chatId: message.chat.id,
+    username: from.username || "",
+    firstName: from.first_name || "",
+    lastName: from.last_name || "",
+    userMessage: text,
+    botAnswer: result.answer,
+    intent: result.intent,
+    confidence: result.confidence,
+    isAdminChat: admin
+  }).catch(() => {});
+
+  if (result.intent === "support" && result.confidence < 0.5) {
+    await saveSupportMessage(message, text);
+    await sendTelegramMessage(message.chat.id, `${result.answer}\n\nСпасибо, вопрос передан администратору. Ответ придет в этот чат.`);
+    return;
+  }
+
+  await sendTelegramMessage(message.chat.id, result.answer);
 }
 
 async function findRunnerValue(surname) {
@@ -523,9 +524,8 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 200, { ok: true });
     }
 
-    const directAnswer = clientAnswer(text);
-    if (directAnswer) {
-      await sendTelegramMessage(chatId, directAnswer);
+    if (/^\/(distances|documents|contacts)(@\w+)?$/i.test(text) || isKnownAiQuestion(text)) {
+      await answerWithAi(message, text, admin);
       return sendJson(res, 200, { ok: true });
     }
 
@@ -540,8 +540,12 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 200, { ok: true });
     }
 
-    await saveSupportMessage(message, text);
-    await sendTelegramMessage(chatId, "Спасибо, вопрос передан администратору. Ответ придет в этот чат.");
+    if (!/^\/[a-z_]+(@\w+)?/i.test(text)) {
+      await answerWithAi(message, text, admin);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    await answerWithAi(message, text, admin);
     return sendJson(res, 200, { ok: true });
   } catch (error) {
     const updateChatId = req.body?.message?.chat?.id;
