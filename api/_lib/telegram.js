@@ -47,6 +47,30 @@ function isTelegramConfigured() {
   return Boolean(process.env.TELEGRAM_BOT_TOKEN || cachedDatabaseToken);
 }
 
+async function getAdminChats() {
+  if (!isSupabaseConfigured()) return [];
+
+  const supabase = getSupabase();
+  const primary = await supabase
+    .from("telegram_admin_chats")
+    .select("chat_id")
+    .eq("enabled", true);
+
+  if (!primary.error) return primary.data || [];
+
+  const fallback = await supabase
+    .from("admin_tasks")
+    .select("id")
+    .like("id", "telegram_admin_chat_%")
+    .eq("completed", true);
+
+  if (fallback.error) return [];
+
+  return (fallback.data || []).map((row) => ({
+    chat_id: String(row.id).replace("telegram_admin_chat_", "")
+  }));
+}
+
 async function sendTelegramMessage(chatId, text, options = {}) {
   const token = await getTelegramToken();
   if (!token) {
@@ -102,21 +126,14 @@ async function notifyTelegramAdmins(text) {
   const token = await getTelegramToken();
   if (!token || !isSupabaseConfigured()) return { sent: 0 };
 
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("telegram_admin_chats")
-    .select("chat_id")
-    .eq("enabled", true);
-
-  if (error) throw error;
-
-  const chats = data || [];
+  const chats = await getAdminChats();
   await Promise.allSettled(chats.map((chat) => sendTelegramMessage(chat.chat_id, text)));
   return { sent: chats.length };
 }
 
 module.exports = {
   callTelegramMethod,
+  getAdminChats,
   getTelegramToken,
   isTelegramConfigured,
   notifyTelegramAdmins,

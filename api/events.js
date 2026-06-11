@@ -111,7 +111,8 @@ module.exports = async function handler(req, res) {
 
     await supabase
       .from("user_profiles")
-      .upsert(profile, { onConflict: "user_id" });
+      .upsert(profile, { onConflict: "user_id" })
+      .catch(() => {});
 
     const eventRow = {
       id: randomUUID(),
@@ -126,7 +127,6 @@ module.exports = async function handler(req, res) {
     };
 
     const { error } = await supabase.from("site_events").insert(eventRow);
-    if (error) throw error;
 
     const notification = buildNotification(user, eventType, metadata);
     const telegram = await notifyTelegramAdmins(notification).catch((error) => ({
@@ -134,7 +134,13 @@ module.exports = async function handler(req, res) {
       error: error.message
     }));
 
-    return sendJson(res, 200, { ok: true, event: eventRow, telegram });
+    return sendJson(res, 200, {
+      ok: true,
+      event: eventRow,
+      persisted: !error,
+      persistenceError: error ? error.message : "",
+      telegram
+    });
   } catch (error) {
     return sendError(res, error);
   }

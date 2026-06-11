@@ -146,7 +146,17 @@ async function isAdminChat(chatId) {
     .eq("enabled", true)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .from("admin_tasks")
+      .select("id")
+      .eq("id", `telegram_admin_chat_${chatId}`)
+      .eq("completed", true)
+      .maybeSingle();
+
+    if (fallback.error) return false;
+    return Boolean(fallback.data);
+  }
   return Boolean(data);
 }
 
@@ -265,7 +275,18 @@ async function registerAdminChat(message, code) {
       updated_at: new Date().toISOString()
     }, { onConflict: "chat_id" });
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .from("admin_tasks")
+      .upsert({
+        id: `telegram_admin_chat_${chatId}`,
+        completed: true,
+        updated_by: title,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "id" });
+
+    if (fallback.error) throw fallback.error;
+  }
   await sendTelegramMessage(chatId, "Готово. Этот чат получает админ-уведомления Marathon Skills.", {
     replyMarkup: menuKeyboard(true)
   });
@@ -274,10 +295,21 @@ async function registerAdminChat(message, code) {
 async function disableAdminChat(message) {
   const supabase = getSupabase();
   const chatId = String(message.chat.id);
-  await supabase
+  const primary = await supabase
     .from("telegram_admin_chats")
     .update({ enabled: false, updated_at: new Date().toISOString() })
     .eq("chat_id", chatId);
+
+  if (primary.error) {
+    await supabase
+      .from("admin_tasks")
+      .upsert({
+        id: `telegram_admin_chat_${chatId}`,
+        completed: false,
+        updated_by: "",
+        updated_at: new Date().toISOString()
+      }, { onConflict: "id" });
+  }
   await sendTelegramMessage(chatId, "Админ-уведомления для этого чата отключены.");
 }
 
@@ -330,7 +362,7 @@ async function buildEvents() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  if (error) throw error;
+  if (error) return "Журнал событий пока не создан в базе. Уведомления все равно отправляются администраторам Telegram.";
   if (!data || !data.length) return "Событий пока нет.";
 
   return data.map((event) => {
@@ -359,7 +391,7 @@ async function buildSupportList() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  if (error) throw error;
+  if (error) return "Таблица обращений пока не создана в базе. Новые вопросы все равно приходят администраторам Telegram.";
   if (!data || !data.length) return "Новых обращений нет.";
 
   return data.map((row) => [
@@ -403,7 +435,8 @@ async function replyToSupport(message, text) {
         updated_at: new Date().toISOString()
       })
       .eq("chat_id", targetChatId)
-      .eq("status", "new");
+      .eq("status", "new")
+      .catch(() => {});
   }
 
   await sendTelegramMessage(message.chat.id, "Ответ отправлен, открытые обращения этого чата помечены как отвеченные.");
