@@ -178,14 +178,33 @@ async function answerWithAi(message, text, admin) {
 
 async function findRunnerValue(surname) {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  const lookup = await supabase
     .from("marathon_bot_lookup")
     .select("surname, value")
     .ilike("surname", `${surname}%`)
     .limit(1);
 
-  if (error) throw error;
-  return data && data[0] ? data[0] : null;
+  if (!lookup.error && lookup.data && lookup.data[0]) return lookup.data[0];
+
+  const { data, error } = await supabase
+    .from("participants")
+    .select("last_name,bib_number,distance,status")
+    .ilike("last_name", `${surname}%`)
+    .order("registration_date", { ascending: false })
+    .limit(1);
+
+  if (error) throw lookup.error || error;
+  if (!data || !data[0]) return null;
+
+  const row = data[0];
+  return {
+    surname: row.last_name,
+    value: [
+      `номер ${row.bib_number || "не выдан"}`,
+      `дистанция ${row.distance || "не выбрана"}`,
+      `статус ${row.status === "disqualified" ? "дисквалифицирован" : "допущен"}`
+    ].join(", ")
+  };
 }
 
 async function findRunnerDetails(surname) {

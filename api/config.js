@@ -1,7 +1,8 @@
 const { isSupabaseConfigured } = require("./_lib/supabase");
 const { getAdminEmails, isFirebaseTokenVerifierConfigured, sendJson } = require("./_lib/auth");
+const { getTelegramToken } = require("./_lib/telegram");
 
-module.exports = function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
     return sendJson(res, 405, { ok: false, error: "Method not allowed" });
   }
@@ -22,7 +23,7 @@ module.exports = function handler(req, res) {
     firebaseAdminConfigured: isFirebaseTokenVerifierConfigured(),
     supabaseConfigured: isSupabaseConfigured(),
     adminEmailsConfigured: getAdminEmails().length > 0,
-    telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    telegramConfigured: Boolean(await getTelegramToken()),
     telegramAdminSecretConfigured: Boolean(process.env.TELEGRAM_ADMIN_SECRET)
   });
 };
