@@ -1,15 +1,54 @@
 const { getSupabase, isSupabaseConfigured } = require("./supabase");
 
-function getTelegramToken() {
-  return process.env.TELEGRAM_BOT_TOKEN || "";
+let cachedDatabaseToken = "";
+
+async function getTelegramToken() {
+  if (process.env.TELEGRAM_BOT_TOKEN) return process.env.TELEGRAM_BOT_TOKEN;
+  if (cachedDatabaseToken) return cachedDatabaseToken;
+  if (!isSupabaseConfigured()) return "";
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("admin_tasks")
+    .select("updated_by")
+    .eq("id", "telegram_bot_token")
+    .maybeSingle();
+
+  if (error) return "";
+  cachedDatabaseToken = data?.updated_by || "";
+  return cachedDatabaseToken;
+}
+
+async function storeTelegramToken(token) {
+  const cleanToken = String(token || "").trim();
+  if (!cleanToken) return false;
+  if (!isSupabaseConfigured()) {
+    const error = new Error("Supabase is not configured");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("admin_tasks")
+    .upsert({
+      id: "telegram_bot_token",
+      completed: false,
+      updated_by: cleanToken,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "id" });
+
+  if (error) throw error;
+  cachedDatabaseToken = cleanToken;
+  return true;
 }
 
 function isTelegramConfigured() {
-  return Boolean(getTelegramToken());
+  return Boolean(process.env.TELEGRAM_BOT_TOKEN || cachedDatabaseToken);
 }
 
 async function sendTelegramMessage(chatId, text, options = {}) {
-  const token = getTelegramToken();
+  const token = await getTelegramToken();
   if (!token) {
     const error = new Error("TELEGRAM_BOT_TOKEN is not configured");
     error.statusCode = 500;
@@ -36,7 +75,7 @@ async function sendTelegramMessage(chatId, text, options = {}) {
 }
 
 async function callTelegramMethod(method, payload = {}) {
-  const token = getTelegramToken();
+  const token = await getTelegramToken();
   if (!token) {
     const error = new Error("TELEGRAM_BOT_TOKEN is not configured");
     error.statusCode = 500;
@@ -60,7 +99,8 @@ async function callTelegramMethod(method, payload = {}) {
 }
 
 async function notifyTelegramAdmins(text) {
-  if (!isTelegramConfigured() || !isSupabaseConfigured()) return { sent: 0 };
+  const token = await getTelegramToken();
+  if (!token || !isSupabaseConfigured()) return { sent: 0 };
 
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -77,7 +117,9 @@ async function notifyTelegramAdmins(text) {
 
 module.exports = {
   callTelegramMethod,
+  getTelegramToken,
   isTelegramConfigured,
   notifyTelegramAdmins,
-  sendTelegramMessage
+  sendTelegramMessage,
+  storeTelegramToken
 };

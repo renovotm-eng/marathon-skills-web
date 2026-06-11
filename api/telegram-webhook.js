@@ -3,9 +3,11 @@ const { getSupabase, isSupabaseConfigured } = require("./_lib/supabase");
 const { sendError, sendJson } = require("./_lib/auth");
 const {
   callTelegramMethod,
+  getTelegramToken,
   isTelegramConfigured,
   notifyTelegramAdmins,
-  sendTelegramMessage
+  sendTelegramMessage,
+  storeTelegramToken
 } = require("./_lib/telegram");
 const { getAssistantAnswer, logBotInteraction, normalizeText } = require("./_lib/marathon-ai");
 
@@ -402,8 +404,7 @@ async function saveSupportMessage(message, text) {
     created_at: new Date().toISOString()
   };
 
-  const { error } = await supabase.from("support_messages").insert(row);
-  if (error) throw error;
+  await supabase.from("support_messages").insert(row).catch(() => {});
 
   await notifyTelegramAdmins([
     "Marathon Skills: новое обращение в Telegram",
@@ -417,6 +418,7 @@ async function saveSupportMessage(message, text) {
 async function setupTelegram(req) {
   const secret = process.env.TELEGRAM_ADMIN_SECRET || "";
   const provided = getQueryValue(req, "setup") || getQueryValue(req, "secret");
+  const providedToken = getQueryValue(req, "token");
 
   if (!secret || provided !== secret) {
     return {
@@ -425,7 +427,11 @@ async function setupTelegram(req) {
     };
   }
 
-  if (!isTelegramConfigured()) {
+  if (providedToken) {
+    await storeTelegramToken(providedToken);
+  }
+
+  if (!(await getTelegramToken())) {
     return { ok: false, error: "TELEGRAM_BOT_TOKEN is not configured" };
   }
 
