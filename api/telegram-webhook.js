@@ -362,7 +362,7 @@ async function replyToSupport(message, text) {
   await sendTelegramMessage(targetChatId, `Ответ администратора Marathon Skills:\n${answer}`);
 
   const supabase = getSupabase();
-  await supabase
+  const fullUpdate = await supabase
     .from("support_messages")
     .update({
       status: "answered",
@@ -372,6 +372,17 @@ async function replyToSupport(message, text) {
     })
     .eq("chat_id", targetChatId)
     .eq("status", "new");
+
+  if (fullUpdate.error) {
+    await supabase
+      .from("support_messages")
+      .update({
+        status: "answered",
+        updated_at: new Date().toISOString()
+      })
+      .eq("chat_id", targetChatId)
+      .eq("status", "new");
+  }
 
   await sendTelegramMessage(message.chat.id, "Ответ отправлен, открытые обращения этого чата помечены как отвеченные.");
 }
