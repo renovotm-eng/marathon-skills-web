@@ -79,14 +79,15 @@ function assertSetupAccess(req) {
 }
 
 async function checkRelation(supabase, relation) {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from(relation)
-    .select("*", { count: "exact", head: true });
+    .select("*")
+    .limit(1);
 
   return {
     relation,
     ok: !error,
-    count: error ? null : count,
+    sampleRows: error ? null : (data || []).length,
     error: error ? error.message : ""
   };
 }
