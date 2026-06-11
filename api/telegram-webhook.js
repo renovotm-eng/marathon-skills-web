@@ -510,7 +510,7 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 200, {
         ok: true,
         message: "Telegram webhook is ready.",
-        telegramConfigured: isTelegramConfigured(),
+        telegramConfigured: Boolean(await getTelegramToken()),
         supabaseConfigured: isSupabaseConfigured(),
         setup: "Open /api/telegram-webhook?setup=TELEGRAM_ADMIN_SECRET to set webhook and bot commands."
       });
