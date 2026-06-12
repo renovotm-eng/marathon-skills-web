@@ -1,5 +1,6 @@
 const { getSupabase, isSupabaseConfigured } = require("./_lib/supabase");
 const { sendError, sendJson } = require("./_lib/auth");
+const { listFallbackDocs } = require("./_lib/fallback-store");
 
 const REQUIRED_RELATIONS = [
   "participants",
@@ -58,6 +59,13 @@ const FAQ_ROWS = [
     answer: "Marathon Skills проводится в 2026 году. Сбор участников начинается в 09:00, стартовые пакеты выдаются заранее.",
     keywords: ["старт", "время", "расписание", "год"]
   }
+];
+
+const FALLBACK_COLLECTIONS = [
+  "site_event",
+  "support_message",
+  "bot_interaction",
+  "telegram_admin_chat"
 ];
 
 function getQueryValue(req, name) {
@@ -165,6 +173,32 @@ async function seedDatabase(supabase, statuses) {
   return result;
 }
 
+async function checkFallbackCollections(supabase) {
+  const result = [];
+
+  for (const collection of FALLBACK_COLLECTIONS) {
+    try {
+      const docs = await listFallbackDocs(supabase, collection, { limit: 1 });
+      result.push({
+        collection,
+        ok: true,
+        sampleRows: docs.length,
+        storage: "admin_tasks"
+      });
+    } catch (error) {
+      result.push({
+        collection,
+        ok: false,
+        sampleRows: null,
+        storage: "admin_tasks",
+        error: error.message
+      });
+    }
+  }
+
+  return result;
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (req.method !== "GET" && req.method !== "POST") {
@@ -182,18 +216,22 @@ module.exports = async function handler(req, res) {
 
     const supabase = getSupabase();
     const statuses = await Promise.all(REQUIRED_RELATIONS.map((relation) => checkRelation(supabase, relation)));
+    const fallbackCollections = await checkFallbackCollections(supabase);
     const seed = getQueryValue(req, "seed") === "1" || req.method === "POST";
     const seedResult = seed ? await seedDatabase(supabase, statuses) : null;
     const missing = statuses.filter((status) => !status.ok).map((status) => status.relation);
+    const fallbackReady = fallbackCollections.every((item) => item.ok);
 
     return sendJson(res, 200, {
-      ok: missing.length === 0 && (!seedResult || Object.values(seedResult).every((item) => item.ok)),
+      ok: fallbackReady && (!seedResult || Object.values(seedResult).every((item) => item.ok)),
       seeded: Boolean(seedResult),
       seedResult,
       missing,
+      fallbackReady,
+      fallbackCollections,
       relations: statuses,
       nextStep: missing.length
-        ? "Open Supabase SQL Editor and run supabase-schema.sql, then call this endpoint again with seed=1."
+        ? "Runtime storage is ready through admin_tasks fallback. For physical tables, run supabase-schema.sql in Supabase SQL Editor."
         : "Database is ready."
     });
   } catch (error) {

@@ -72,6 +72,82 @@ footer:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
 footer strong { font-size: 17px; }
 footer span { color: var(--muted); font-size: 15px; text-align: right; }
 
+.telegram-fab {
+  position: fixed;
+  right: clamp(16px, 3vw, 34px);
+  bottom: clamp(16px, 3vw, 34px);
+  z-index: 45;
+  min-width: 64px;
+  min-height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px 12px 12px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #27a8e8, #168aad 70%, #0b6f91);
+  box-shadow: 0 18px 46px rgba(18, 88, 126, .34);
+  text-decoration: none;
+  font-weight: 800;
+  isolation: isolate;
+  transform: translateZ(0);
+  animation: telegramFabIn .55s var(--ease-pop) .25s both, telegramFabFloat 3s ease-in-out 1s infinite;
+  transition: transform .24s var(--ease-pop), box-shadow .24s var(--ease-out), filter .24s var(--ease-out);
+}
+
+.telegram-fab::before,
+.telegram-fab::after {
+  position: absolute;
+  inset: 6px;
+  z-index: -1;
+  border-radius: inherit;
+  content: "";
+}
+
+.telegram-fab::before {
+  border: 1px solid rgba(255,255,255,.42);
+}
+
+.telegram-fab::after {
+  background: rgba(39, 168, 232, .28);
+  animation: telegramPulse 2.2s ease-out infinite;
+}
+
+.telegram-fab:hover {
+  filter: saturate(1.08);
+  box-shadow: 0 24px 58px rgba(18, 88, 126, .44);
+  transform: translateY(-4px) scale(1.02);
+}
+
+.telegram-fab:active {
+  transform: translateY(-1px) scale(.98);
+}
+
+.telegram-fab__icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+.telegram-fab__icon svg {
+  width: 24px;
+  height: 24px;
+  margin-left: -2px;
+  fill: currentColor;
+}
+
+.telegram-fab__text {
+  max-width: 150px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
 .hero { position: relative; min-height: 470px; height: 58vh; max-height: 600px; overflow: hidden; border-radius: 30px; box-shadow: 0 14px 36px rgba(11, 37, 69, .22); transform: translateZ(0); transition: box-shadow .35s var(--ease-out), transform .35s var(--ease-out); }
 .hero:hover { box-shadow: 0 22px 52px rgba(11, 37, 69, .28); transform: translateY(-2px); }
 .hero > img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.01); transition: transform .8s var(--ease-out); }
@@ -422,6 +498,21 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22, 138, 
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes telegramFabIn {
+  from { opacity: 0; transform: translateY(18px) scale(.88); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes telegramFabFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -5px; }
+}
+
+@keyframes telegramPulse {
+  0% { opacity: .55; transform: scale(.96); }
+  75%, 100% { opacity: 0; transform: scale(1.55); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
@@ -454,6 +545,8 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22, 138, 
   .brand span { font-size: 15px; }
   .sidebar-nav { display: flex; flex-wrap: wrap; gap: 6px; }
   .sidebar-nav button { min-height: 38px; padding: 0 10px; }
+  .telegram-fab { right: 18px; bottom: 18px; padding-right: 12px; }
+  .telegram-fab__text { display: none; }
   .date-panel { display: none; }
   .account-panel { margin-top: 10px; padding: 10px 12px; }
   .account-panel strong { margin-bottom: 4px; }

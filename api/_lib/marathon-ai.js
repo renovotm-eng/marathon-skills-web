@@ -1,3 +1,5 @@
+const { saveFallbackDoc } = require("./fallback-store");
+
 const DEFAULT_KNOWLEDGE = [
   {
     intent: "distances",
@@ -180,7 +182,8 @@ async function logBotInteraction(supabase, payload) {
     is_admin_chat: Boolean(payload.isAdminChat)
   };
 
-  await supabase.from("bot_interactions").insert(row);
+  const { error } = await supabase.from("bot_interactions").insert(row);
+  if (error) await saveFallbackDoc(supabase, "bot_interaction", row).catch(() => {});
 }
 
 module.exports = {

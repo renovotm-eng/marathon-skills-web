@@ -1,6 +1,7 @@
 const { randomUUID } = require("crypto");
 const { getSupabase } = require("./_lib/supabase");
 const { requireUser, sendError, sendJson } = require("./_lib/auth");
+const { listFallbackDocs, saveFallbackDoc } = require("./_lib/fallback-store");
 const { notifyTelegramAdmins } = require("./_lib/telegram");
 
 const EVENT_LABELS = {
@@ -18,6 +19,14 @@ const EVENT_LABELS = {
   admin_tasks_update: "Обновление чек-листа админа",
   export_csv: "Экспорт CSV"
 };
+
+async function ignoreDatabaseError(action) {
+  try {
+    await action();
+  } catch {
+    // Optional tables can be absent while fallback storage is active.
+  }
+}
 
 async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
@@ -84,7 +93,14 @@ module.exports = async function handler(req, res) {
         .order("created_at", { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      if (error) {
+        const fallbackEvents = await listFallbackDocs(supabase, "site_event", { limit });
+        return sendJson(res, 200, {
+          ok: true,
+          fallback: true,
+          events: fallbackEvents.map((item) => item.data)
+        });
+      }
       return sendJson(res, 200, { ok: true, events: data || [] });
     }
 
@@ -109,10 +125,9 @@ module.exports = async function handler(req, res) {
     };
     if (eventType === "user_login") profile.last_login_at = new Date().toISOString();
 
-    await supabase
+    await ignoreDatabaseError(() => supabase
       .from("user_profiles")
-      .upsert(profile, { onConflict: "user_id" })
-      .catch(() => {});
+      .upsert(profile, { onConflict: "user_id" }));
 
     const eventRow = {
       id: randomUUID(),
@@ -127,6 +142,7 @@ module.exports = async function handler(req, res) {
     };
 
     const { error } = await supabase.from("site_events").insert(eventRow);
+    if (error) await saveFallbackDoc(supabase, "site_event", eventRow).catch(() => {});
 
     const notification = buildNotification(user, eventType, metadata);
     const telegram = await notifyTelegramAdmins(notification).catch((error) => ({

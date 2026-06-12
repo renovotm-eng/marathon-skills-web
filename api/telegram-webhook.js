@@ -1,6 +1,7 @@
 const { randomUUID } = require("crypto");
 const { getSupabase, isSupabaseConfigured } = require("./_lib/supabase");
 const { sendError, sendJson } = require("./_lib/auth");
+const { completeFallbackDocs, listFallbackDocs, saveFallbackDoc } = require("./_lib/fallback-store");
 const {
   callTelegramMethod,
   getTelegramToken,
@@ -46,6 +47,14 @@ function getQueryValue(req, name) {
 
 function localTime(value = new Date()) {
   return new Date(value).toLocaleString("ru-RU", { timeZone: "Asia/Qyzylorda" });
+}
+
+async function ignoreDatabaseError(action) {
+  try {
+    await action();
+  } catch {
+    // Optional tables can be absent while fallback storage is active.
+  }
 }
 
 function normalizeSurname(text) {
@@ -362,7 +371,20 @@ async function buildEvents() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  if (error) return "Журнал событий пока не создан в базе. Уведомления все равно отправляются администраторам Telegram.";
+  if (error) {
+    const fallbackEvents = await listFallbackDocs(supabase, "site_event", { limit: 6 }).catch(() => []);
+    if (!fallbackEvents.length) return "Событий пока нет.";
+
+    return fallbackEvents.map((event) => {
+      const row = event.data || {};
+      const metadata = row.metadata || {};
+      return [
+        `${localTime(row.created_at || event.updatedAt)} - ${row.event_title || row.event_type || "Действие на сайте"}`,
+        `Кто: ${metadata.fullName || row.user_name || row.user_email || "пользователь"}`,
+        metadata.distance ? `Детали: дистанция ${metadata.distance}` : ""
+      ].filter(Boolean).join("\n");
+    }).join("\n\n");
+  }
   if (!data || !data.length) return "Событий пока нет.";
 
   return data.map((event) => {
@@ -391,7 +413,22 @@ async function buildSupportList() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  if (error) return "Таблица обращений пока не создана в базе. Новые вопросы все равно приходят администраторам Telegram.";
+  if (error) {
+    const fallbackMessages = await listFallbackDocs(supabase, "support_message", { completed: false, limit: 6 }).catch(() => []);
+    if (!fallbackMessages.length) return "Новых обращений нет.";
+
+    return fallbackMessages.map((item) => {
+      const row = item.data || {};
+      return [
+        `ID: ${item.publicId}`,
+        `Chat ID: ${row.chat_id}`,
+        `От: ${[row.first_name, row.last_name].filter(Boolean).join(" ") || row.username || row.chat_id}`,
+        `Время: ${localTime(row.created_at || item.updatedAt)}`,
+        `Сообщение: ${row.message}`,
+        `Ответ: /reply ${row.chat_id} ваш текст`
+      ].join("\n");
+    }).join("\n\n");
+  }
   if (!data || !data.length) return "Новых обращений нет.";
 
   return data.map((row) => [
@@ -428,15 +465,20 @@ async function replyToSupport(message, text) {
     .eq("status", "new");
 
   if (fullUpdate.error) {
-    await supabase
+    const fallbackMessages = await listFallbackDocs(supabase, "support_message", { completed: false }).catch(() => []);
+    const ids = fallbackMessages
+      .filter((item) => String(item.data?.chat_id) === String(targetChatId))
+      .map((item) => item.id);
+    await completeFallbackDocs(supabase, ids).catch(() => {});
+
+    await ignoreDatabaseError(() => supabase
       .from("support_messages")
       .update({
         status: "answered",
         updated_at: new Date().toISOString()
       })
       .eq("chat_id", targetChatId)
-      .eq("status", "new")
-      .catch(() => {});
+      .eq("status", "new"));
   }
 
   await sendTelegramMessage(message.chat.id, "Ответ отправлен, открытые обращения этого чата помечены как отвеченные.");
@@ -456,7 +498,8 @@ async function saveSupportMessage(message, text) {
     created_at: new Date().toISOString()
   };
 
-  await supabase.from("support_messages").insert(row).catch(() => {});
+  const saved = await supabase.from("support_messages").insert(row);
+  if (saved.error) await saveFallbackDoc(supabase, "support_message", row, { completed: false });
 
   await notifyTelegramAdmins([
     "Marathon Skills: новое обращение в Telegram",
