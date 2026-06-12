@@ -91,9 +91,10 @@ footer span { color: var(--muted); font-size: 15px; text-align: right; }
   text-decoration: none;
   font-weight: 800;
   isolation: isolate;
+  overflow: visible;
   transform: translateZ(0);
   animation: telegramFabIn .55s var(--ease-pop) .25s both, telegramFabFloat 3s ease-in-out 1s infinite;
-  transition: transform .24s var(--ease-pop), box-shadow .24s var(--ease-out), filter .24s var(--ease-out);
+  transition: background .24s var(--ease-out), transform .24s var(--ease-pop), box-shadow .24s var(--ease-out), filter .24s var(--ease-out);
 }
 
 .telegram-fab::before,
@@ -107,17 +108,30 @@ footer span { color: var(--muted); font-size: 15px; text-align: right; }
 
 .telegram-fab::before {
   border: 1px solid rgba(255,255,255,.42);
+  transition: border-color .24s var(--ease-out), box-shadow .24s var(--ease-out), transform .24s var(--ease-out);
 }
 
 .telegram-fab::after {
   background: rgba(39, 168, 232, .28);
   animation: telegramPulse 2.2s ease-out infinite;
+  transition: opacity .24s var(--ease-out), transform .24s var(--ease-out);
 }
 
 .telegram-fab:hover {
+  background: linear-gradient(135deg, #38c7ff, #1aa4cf 68%, #087899);
   filter: saturate(1.08);
-  box-shadow: 0 24px 58px rgba(18, 88, 126, .44);
+  box-shadow: 0 24px 58px rgba(18, 88, 126, .44), 0 0 34px rgba(39, 168, 232, .46);
   transform: translateY(-4px) scale(1.02);
+}
+
+.telegram-fab:hover::before {
+  border-color: rgba(255,255,255,.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 0 26px rgba(157, 217, 232, .34);
+  transform: scale(1.02);
+}
+
+.telegram-fab:hover::after {
+  animation: telegramGlow 1.35s ease-in-out infinite;
 }
 
 .telegram-fab:active {
@@ -133,6 +147,13 @@ footer span { color: var(--muted); font-size: 15px; text-align: right; }
   border-radius: 50%;
   background: rgba(255,255,255,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+  transition: background .24s var(--ease-out), box-shadow .24s var(--ease-out), transform .24s var(--ease-pop);
+}
+
+.telegram-fab:hover .telegram-fab__icon {
+  background: rgba(255,255,255,.26);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 0 22px rgba(255,255,255,.24);
+  transform: rotate(-5deg) scale(1.06);
 }
 
 .telegram-fab__icon svg {
@@ -426,9 +447,88 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22, 138, 
 .day-plan strong { color: var(--blue-dark); }
 .day-plan span { color: var(--muted); font-size: 13px; line-height: 1.4; }
 .runner-alert { margin-bottom: 16px; padding: 14px 16px; border-radius: 14px; color: #7c352f; background: #fde7e4; line-height: 1.45; }
-.runner-checklist, .ops-checklist { display: grid; gap: 9px; }
-.runner-checklist label, .ops-checklist label { display: flex; align-items: flex-start; gap: 9px; padding: 10px; border-radius: 12px; background: #eef6f8; color: var(--ink); line-height: 1.35; }
-.runner-checklist input, .ops-checklist input { width: 18px; min-height: 18px; margin: 1px 0 0; flex: 0 0 auto; accent-color: var(--blue-dark); }
+.runner-checklist, .ops-checklist { display: grid; gap: 10px; }
+.runner-checklist .check-row, .ops-checklist .check-row {
+  position: relative;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 15px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: #eef6f8;
+  color: var(--ink);
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background .2s var(--ease-out), border-color .2s var(--ease-out), box-shadow .2s var(--ease-out);
+}
+.runner-checklist .check-row:hover, .ops-checklist .check-row:hover {
+  border-color: rgba(22, 138, 173, .18);
+  background: #e7f3f7;
+  box-shadow: 0 10px 22px rgba(20, 48, 71, .08);
+}
+.runner-checklist .check-row:active, .ops-checklist .check-row:active {
+  background: #e2f0f4;
+}
+.runner-checklist input, .ops-checklist input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.check-box {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: block;
+  border: 2px solid rgba(11, 37, 69, .5);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+  transition: border-color .18s var(--ease-out), background .18s var(--ease-out), box-shadow .18s var(--ease-out), transform .18s var(--ease-pop);
+}
+.check-box::after {
+  position: absolute;
+  left: 8px;
+  top: 3px;
+  width: 7px;
+  height: 14px;
+  border: solid #fff;
+  border-width: 0 3px 3px 0;
+  opacity: 0;
+  content: "";
+  transform: rotate(42deg) scale(.72);
+  transition: opacity .16s var(--ease-out), transform .2s var(--ease-pop);
+}
+.check-label {
+  min-width: 0;
+  padding-top: 2px;
+}
+.runner-checklist input:focus-visible + .check-box,
+.ops-checklist input:focus-visible + .check-box {
+  outline: 3px solid rgba(22, 138, 173, .18);
+  outline-offset: 3px;
+}
+.runner-checklist input:checked + .check-box,
+.ops-checklist input:checked + .check-box {
+  border-color: var(--blue-dark);
+  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+  box-shadow: 0 8px 18px rgba(22, 138, 173, .24);
+}
+.runner-checklist input:checked + .check-box::after,
+.ops-checklist input:checked + .check-box::after {
+  opacity: 1;
+  transform: rotate(42deg) scale(1);
+}
+.runner-checklist .check-row:hover .check-box,
+.ops-checklist .check-row:hover .check-box {
+  border-color: var(--blue-dark);
+  transform: scale(1.04);
+}
 .checklist-progress { margin: 0 0 10px; color: var(--muted); font-size: 14px; font-weight: 700; }
 .admin-ops { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr); gap: 16px; margin-bottom: 16px; }
 .ops-panel { padding: 16px; border: 1px solid #deeaef; border-radius: 16px; background: #f7fbfc; }
@@ -511,6 +611,19 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22, 138, 
 @keyframes telegramPulse {
   0% { opacity: .55; transform: scale(.96); }
   75%, 100% { opacity: 0; transform: scale(1.55); }
+}
+
+@keyframes telegramGlow {
+  0%, 100% {
+    opacity: .45;
+    transform: scale(1.04);
+    box-shadow: 0 0 0 rgba(39, 168, 232, 0);
+  }
+  50% {
+    opacity: .85;
+    transform: scale(1.22);
+    box-shadow: 0 0 34px rgba(39, 168, 232, .46);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -924,7 +924,7 @@ function renderRunnerChecklist(participant) {
     <h2>Чек-лист бегуна</h2>
     <p class="checklist-progress">Выполнено: ${completed} из ${runnerChecklistItems.length}</p>
     <div class="runner-checklist">${runnerChecklistItems.map(([id, label]) => `
-      <label><input type="checkbox" data-runner-check="${id}"${participant.runnerChecklist.includes(id) ? " checked" : ""}><span>${escapeHtml(label)}</span></label>`).join("")}
+      <label class="check-row"><input type="checkbox" data-runner-check="${id}"${participant.runnerChecklist.includes(id) ? " checked" : ""}><span class="check-box" aria-hidden="true"></span><span class="check-label">${escapeHtml(label)}</span></label>`).join("")}
     </div>`;
 }
 
@@ -1167,7 +1167,7 @@ function renderAdminDistanceSummary() {
 
 function renderAdminOpsChecklist() {
   $("#admin-ops-checklist").innerHTML = adminChecklistItems.map(([id, label]) => `
-    <label><input type="checkbox" data-admin-task="${id}"${state.adminTasks.includes(id) ? " checked" : ""}><span>${escapeHtml(label)}</span></label>`).join("");
+    <label class="check-row"><input type="checkbox" data-admin-task="${id}"${state.adminTasks.includes(id) ? " checked" : ""}><span class="check-box" aria-hidden="true"></span><span class="check-label">${escapeHtml(label)}</span></label>`).join("");
 }
 
 function toggleAdminTask(id, checked) {
