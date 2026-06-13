@@ -19,6 +19,7 @@
           <button type="button" data-page="home">Главная</button>
           <button type="button" data-page="registration">Регистрация</button>
           <button type="button" data-page="participants">Участники</button>
+          <button type="button" data-page="assistant">AI ассистент</button>
           <button type="button" class="runner-nav hidden" data-page="cabinet">Мой кабинет</button>
           <button type="button" class="admin-nav hidden" data-page="admin">Кабинет организатора</button>
         </nav>
@@ -253,6 +254,41 @@
           </article>
         </section>
 
+        <section class="page" id="page-assistant">
+          <article class="content-card ai-page-card">
+            <header class="ai-hero">
+              <div>
+                <p class="section-kicker">AI помощник Marathon Skills</p>
+                <h1>Спросите о забеге, регистрации или BMI</h1>
+                <p class="subtitle">Ассистент отвечает по теме проекта: помогает разобраться с дистанциями, заявкой, личным кабинетом, документами и подготовкой к старту.</p>
+              </div>
+              <div class="ai-signal" aria-hidden="true">
+                <strong>AI</strong>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </header>
+            <div class="ai-layout">
+              <section class="ai-chat-card ai-chat-card-page" aria-label="Чат с AI ассистентом">
+                <div class="ai-messages" id="ai-page-messages"></div>
+                <form class="ai-form" id="ai-page-form">
+                  <textarea id="ai-page-input" rows="3" maxlength="900" placeholder="Например: какие документы взять на старт?"></textarea>
+                  <button class="button primary ai-send" type="submit">Отправить</button>
+                </form>
+              </section>
+              <aside class="ai-side-panel">
+                <h2>Быстрые вопросы</h2>
+                <button type="button" data-ai-question="Как зарегистрироваться на Marathon Skills?">Как зарегистрироваться?</button>
+                <button type="button" data-ai-question="Какие дистанции есть на марафоне?">Какие есть дистанции?</button>
+                <button type="button" data-ai-question="Как работает расчет BMI?">Как работает BMI?</button>
+                <button type="button" data-ai-question="Что взять с собой в день забега?">Что взять на старт?</button>
+                <button type="button" data-ai-question="Где посмотреть свой стартовый номер и статус заявки?">Где мой номер?</button>
+              </aside>
+            </div>
+          </article>
+        </section>
+
         <section class="page" id="page-admin">
           <article class="content-card admin-card">
             <header class="admin-header">
@@ -349,6 +385,24 @@
       <section class="admin-hint compact" id="admin-hint"><strong>Админ</strong><p>Вход по email из <code>ADMIN_EMAILS</code> или через тестовый логин <code>admin</code>.</p></section>
     </article>
   </div>
+  <button class="ai-fab" id="ai-fab" type="button" aria-label="Открыть AI ассистента" aria-expanded="false">
+    <span class="ai-fab__icon" aria-hidden="true">AI</span>
+    <span class="ai-fab__text">AI ассистент</span>
+  </button>
+  <section class="ai-widget hidden" id="ai-widget" aria-label="Быстрый чат с AI ассистентом">
+    <header>
+      <div>
+        <strong>AI ассистент</strong>
+        <span>Marathon Skills</span>
+      </div>
+      <button type="button" id="ai-widget-close" aria-label="Закрыть AI ассистента">×</button>
+    </header>
+    <div class="ai-messages" id="ai-widget-messages"></div>
+    <form class="ai-form ai-widget-form" id="ai-widget-form">
+      <textarea id="ai-widget-input" rows="2" maxlength="900" placeholder="Задайте вопрос..."></textarea>
+      <button class="button primary ai-send" type="submit">Ответить</button>
+    </form>
+  </section>
   <a class="telegram-fab" href="https://t.me/llani1337BOT" target="_blank" rel="noopener" aria-label="Открыть Telegram-бота Marathon Skills">
     <span class="telegram-fab__icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" focusable="false">

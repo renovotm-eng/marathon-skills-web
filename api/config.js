@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
     supabaseConfigured: isSupabaseConfigured(),
     adminEmailsConfigured: getAdminEmails().length > 0,
     telegramConfigured: Boolean(await getTelegramToken()),
-    telegramAdminSecretConfigured: Boolean(process.env.TELEGRAM_ADMIN_SECRET)
+    telegramAdminSecretConfigured: Boolean(process.env.TELEGRAM_ADMIN_SECRET),
+    aiConfigured: Boolean(process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY)
   });
 };

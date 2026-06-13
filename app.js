@@ -22,6 +22,7 @@ const adminChecklistItems = [
   ["volunteers", "Провести инструктаж волонтеров"],
   ["water", "Разместить воду на дистанциях"]
 ];
+const AI_WELCOME_TEXT = "Привет! Я AI ассистент Marathon Skills. Спросите меня о регистрации, дистанциях, BMI, документах, личном кабинете или подготовке к старту.";
 
 const state = {
   accounts: loadJson(STORAGE.accounts, []).map(normalizeAccount).filter((account) => account.login),
@@ -36,6 +37,9 @@ const state = {
   siteEvents: [],
   cloud: { configured: false, ready: false, syncing: false },
   lastTrackedLoginKey: "",
+  aiBusy: false,
+  aiWidgetOpen: false,
+  aiMessages: [{ id: "welcome", role: "assistant", text: AI_WELCOME_TEXT }],
   crop: { image: null, x: 0, y: 0, width: 0, height: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 }
 };
 
@@ -429,6 +433,7 @@ function showPage(name) {
   if (name === "participants") renderParticipants();
   if (name === "admin") renderAdminDashboard();
   if (name === "cabinet") renderRunnerCabinet();
+  if (name === "assistant") renderAiMessages();
 }
 
 function updateAccountUi() {
@@ -485,6 +490,134 @@ function openPersonalCabinet() {
   if (!state.session) return openLogin();
   if (state.session.isAdmin) return showPage("admin");
   showPage("cabinet");
+}
+
+function getActivePageName() {
+  return $(".page.active")?.id?.replace("page-", "") || "home";
+}
+
+function getAiContext() {
+  const participant = getOwnParticipant();
+  const marathonDate = getNextMarathonDate();
+  return {
+    page: getActivePageName(),
+    marathonYear: marathonDate.getFullYear(),
+    marathonDate: `15 июня ${marathonDate.getFullYear()}`,
+    role: !state.session ? "guest" : state.session.isAdmin ? "admin" : "runner",
+    registered: Boolean(participant),
+    distance: participant?.distance || "",
+    status: participant?.status || "",
+    bmiCategory: participant?.bmiCategory || "",
+    participantCount: state.participants.length
+  };
+}
+
+function renderAiMessages() {
+  const html = state.aiMessages.map((message) => `
+    <article class="ai-message ${escapeHtml(message.role)}${message.pending ? " pending" : ""}${message.error ? " error" : ""}">
+      <strong>${message.role === "user" ? "Вы" : "AI ассистент"}</strong>
+      <p>${escapeHtml(message.text)}</p>
+    </article>`).join("");
+
+  ["#ai-page-messages", "#ai-widget-messages"].forEach((selector) => {
+    const container = $(selector);
+    if (!container) return;
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+  });
+}
+
+function setAiBusy(isBusy) {
+  state.aiBusy = isBusy;
+  $$(".ai-send").forEach((button) => {
+    button.disabled = isBusy;
+    button.textContent = isBusy ? "Думаю..." : button.closest("#ai-widget-form") ? "Ответить" : "Отправить";
+  });
+}
+
+function openAiWidget() {
+  state.aiWidgetOpen = true;
+  $("#ai-widget").classList.remove("hidden");
+  $("#ai-fab").classList.add("active");
+  $("#ai-fab").setAttribute("aria-expanded", "true");
+  renderAiMessages();
+  setTimeout(() => $("#ai-widget-input")?.focus(), 50);
+}
+
+function closeAiWidget() {
+  state.aiWidgetOpen = false;
+  $("#ai-widget").classList.add("hidden");
+  $("#ai-fab").classList.remove("active");
+  $("#ai-fab").setAttribute("aria-expanded", "false");
+}
+
+function toggleAiWidget() {
+  state.aiWidgetOpen ? closeAiWidget() : openAiWidget();
+}
+
+function collectAiHistory() {
+  return state.aiMessages
+    .filter((message) => !message.pending && !message.error)
+    .slice(-8)
+    .map((message) => ({
+      role: message.role === "user" ? "user" : "assistant",
+      content: message.text
+    }));
+}
+
+async function submitAiQuestion(question) {
+  const text = question.trim();
+  if (!text || state.aiBusy) return;
+
+  const pendingMessage = {
+    id: crypto.randomUUID(),
+    role: "assistant",
+    text: "Думаю над ответом...",
+    pending: true
+  };
+  state.aiMessages.push({ id: crypto.randomUUID(), role: "user", text });
+  state.aiMessages.push(pendingMessage);
+  renderAiMessages();
+  setAiBusy(true);
+
+  try {
+    const response = await fetch("/api/ai-assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: text,
+        history: collectAiHistory(),
+        context: getAiContext()
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || "AI assistant error");
+
+    pendingMessage.text = payload.answer || "Не получилось сформировать ответ. Попробуйте задать вопрос проще.";
+    pendingMessage.pending = false;
+    pendingMessage.source = payload.source || "ai";
+    trackSiteEvent("ai_question", {
+      page: getActivePageName(),
+      source: pendingMessage.source,
+      questionLength: text.length
+    });
+  } catch (error) {
+    pendingMessage.text = "Не удалось получить ответ. Проверьте интернет или попробуйте еще раз позже.";
+    pendingMessage.pending = false;
+    pendingMessage.error = true;
+    console.warn("AI assistant is unavailable:", error.message);
+  } finally {
+    setAiBusy(false);
+    renderAiMessages();
+  }
+}
+
+function handleAiSubmit(event, inputSelector) {
+  event.preventDefault();
+  const input = $(inputSelector);
+  const question = input.value.trim();
+  input.value = "";
+  submitAiQuestion(question);
 }
 
 function isValidName(value) {
@@ -1399,6 +1532,14 @@ function setRegistrationDefaults() {
 
 function setupEvents() {
   $$("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
+  $("#ai-fab").addEventListener("click", toggleAiWidget);
+  $("#ai-widget-close").addEventListener("click", closeAiWidget);
+  $("#ai-page-form").addEventListener("submit", (event) => handleAiSubmit(event, "#ai-page-input"));
+  $("#ai-widget-form").addEventListener("submit", (event) => handleAiSubmit(event, "#ai-widget-input"));
+  $$("[data-ai-question]").forEach((button) => button.addEventListener("click", () => {
+    if (getActivePageName() !== "assistant") openAiWidget();
+    submitAiQuestion(button.dataset.aiQuestion || button.textContent);
+  }));
   $("#login-button").addEventListener("click", () => openLogin());
   $("#hero-login").addEventListener("click", openPersonalCabinet);
   $("#close-login").addEventListener("click", closeLogin);
@@ -1530,6 +1671,7 @@ function init() {
   linkLegacyParticipants();
   setRegistrationDefaults();
   setupEvents();
+  renderAiMessages();
   resetBmiPreview();
   updateAccountUi();
   updateCountdown();
