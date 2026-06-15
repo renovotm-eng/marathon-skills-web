@@ -283,7 +283,7 @@ async function loadPublicParticipants(showErrors = false) {
   if (state.publicParticipantsLoading) return;
   state.publicParticipantsLoading = true;
   try {
-    const response = await fetch("/api/public-participants");
+    const response = await fetch("/api/public-participants", { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) throw new Error(payload.error || "Public participants API error");
     state.publicParticipants = (payload.participants || []).map(normalizeParticipant);
