@@ -5,6 +5,7 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const STORAGE = {
   accounts: "marathonSkills.accounts.v1",
   participants: "marathonSkills.participants.v1",
+  publicParticipants: "marathonSkills.publicParticipants.v1",
   adminTasks: "marathonSkills.adminTasks.v1"
 };
 const countries = `Казахстан|Австралия|Австрия|Азербайджан|Албания|Алжир|Ангола|Андорра|Антигуа и Барбуда|Аргентина|Армения|Афганистан|Багамы|Бангладеш|Барбадос|Бахрейн|Беларусь|Белиз|Бельгия|Бенин|Болгария|Боливия|Босния и Герцеговина|Ботсвана|Бразилия|Бруней|Буркина-Фасо|Бурунди|Бутан|Вануату|Великобритания|Венгрия|Венесуэла|Восточный Тимор|Вьетнам|Габон|Гаити|Гайана|Гамбия|Гана|Гватемала|Гвинея|Гвинея-Бисау|Германия|Гренада|Греция|Грузия|Дания|Джибути|Доминика|Доминиканская Республика|Египет|Замбия|Зимбабве|Израиль|Индия|Индонезия|Иордания|Ирак|Иран|Ирландия|Исландия|Испания|Италия|Йемен|Кабо-Верде|Камбоджа|Камерун|Канада|Катар|Кения|Кипр|Кирибати|Китай|Колумбия|Коморы|Конго|Корейская Народно-Демократическая Республика|Коста-Рика|Кот-д'Ивуар|Куба|Кувейт|Кыргызстан|Лаос|Латвия|Лесото|Либерия|Ливан|Ливия|Литва|Лихтенштейн|Люксембург|Маврикий|Мавритания|Мадагаскар|Малави|Малайзия|Мали|Мальдивы|Мальта|Марокко|Маршалловы Острова|Мексика|Мозамбик|Молдова|Монако|Монголия|Мьянма|Намибия|Науру|Непал|Нигер|Нигерия|Нидерланды|Никарагуа|Новая Зеландия|Норвегия|Объединенные Арабские Эмираты|Оман|Пакистан|Палау|Панама|Папуа - Новая Гвинея|Парагвай|Перу|Польша|Португалия|Россия|Руанда|Румыния|Сальвадор|Самоа|Сан-Марино|Сан-Томе и Принсипи|Саудовская Аравия|Северная Македония|Сейшелы|Сербия|Сингапур|Сирия|Словакия|Словения|Соединенные Штаты Америки|Соломоновы Острова|Сомали|Судан|Суринам|Сьерра-Леоне|Таджикистан|Таиланд|Танзания|Того|Тонга|Тринидад и Тобаго|Тувалу|Тунис|Туркменистан|Турция|Уганда|Узбекистан|Украина|Уругвай|Федеративные Штаты Микронезии|Фиджи|Филиппины|Финляндия|Франция|Хорватия|Центральноафриканская Республика|Чад|Черногория|Чехия|Чили|Швейцария|Швеция|Шри-Ланка|Эквадор|Экваториальная Гвинея|Эритрея|Эсватини|Эстония|Эфиопия|Южная Корея|Южно-Африканская Республика|Южный Судан|Ямайка|Япония`.split("|");
@@ -27,6 +28,7 @@ const AI_WELCOME_TEXT = "Привет! Я AI ассистент Marathon Skills.
 const state = {
   accounts: loadJson(STORAGE.accounts, []).map(normalizeAccount).filter((account) => account.login),
   participants: loadJson(STORAGE.participants, []).map(normalizeParticipant),
+  publicParticipants: loadJson(STORAGE.publicParticipants, []).map(normalizeParticipant),
   session: null,
   draftParticipant: null,
   selectedParticipantId: null,
@@ -39,6 +41,7 @@ const state = {
   lastTrackedLoginKey: "",
   aiBusy: false,
   aiWidgetOpen: false,
+  publicParticipantsLoading: false,
   aiMessages: [{ id: "welcome", role: "assistant", text: AI_WELCOME_TEXT }],
   crop: { image: null, x: 0, y: 0, width: 0, height: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 }
 };
@@ -256,6 +259,8 @@ async function loadCloudState(participants = null) {
       saveJson(STORAGE.participants, state.participants);
     }
     if (state.session.isAdmin) {
+      state.publicParticipants = state.participants;
+      saveJson(STORAGE.publicParticipants, state.publicParticipants);
       const tasksPayload = await cloudApi("/api/admin-tasks");
       if (tasksPayload?.tasks) {
         state.adminTasks = tasksPayload.tasks.filter((id) => adminChecklistItems.some(([itemId]) => itemId === id));
@@ -263,12 +268,31 @@ async function loadCloudState(participants = null) {
       }
       const eventsPayload = await cloudApi("/api/events?limit=12");
       state.siteEvents = eventsPayload?.events || [];
+    } else {
+      await loadPublicParticipants(false);
     }
     renderParticipants();
     if (state.session.isAdmin) renderAdminDashboard();
     if (!state.session.isAdmin) renderRunnerCabinet();
   } catch (error) {
     toast(`Облачная синхронизация недоступна: ${error.message}`, true);
+  }
+}
+
+async function loadPublicParticipants(showErrors = false) {
+  if (state.publicParticipantsLoading) return;
+  state.publicParticipantsLoading = true;
+  try {
+    const response = await fetch("/api/public-participants");
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || "Public participants API error");
+    state.publicParticipants = (payload.participants || []).map(normalizeParticipant);
+    saveJson(STORAGE.publicParticipants, state.publicParticipants);
+    renderParticipants();
+  } catch (error) {
+    if (showErrors) toast(`Не удалось загрузить общий список участников: ${error.message}`, true);
+  } finally {
+    state.publicParticipantsLoading = false;
   }
 }
 
@@ -1132,9 +1156,13 @@ function toggleRunnerChecklist(id, checked) {
 function renderParticipants() {
   const participants = getVisibleParticipants();
   const isFiltered = Boolean(state.participantFilters.query.trim());
+  const sourceParticipants = getParticipantsListSource();
   $("#participants-count").textContent = isFiltered
-    ? `Найдено: ${participants.length} из ${state.participants.length}`
-    : `Зарегистрировано: ${state.participants.length}`;
+    ? `Найдено: ${participants.length} из ${sourceParticipants.length}`
+    : `Зарегистрировано: ${sourceParticipants.length}`;
+  $("#participants-source-hint").textContent = state.session?.isAdmin
+    ? "Администратор видит полный список и может редактировать записи в общей базе Supabase."
+    : "Список загружается из общей базы Supabase. Личные данные участников доступны только администратору.";
   $("#participants-body").innerHTML = participants.length ? participants.map((participant) => `
     <tr data-id="${participant.id}" class="${participant.id === state.selectedParticipantId ? "selected" : ""}">
       <td>${participant.photo ? `<img class="runner-photo" src="${participant.photo}" alt="">` : `<span class="runner-photo-placeholder"></span>`}</td>
@@ -1150,11 +1178,16 @@ function renderParticipants() {
   });
 }
 
+function getParticipantsListSource() {
+  return state.session?.isAdmin ? state.participants : state.publicParticipants;
+}
+
 function getVisibleParticipants() {
   const query = state.participantFilters.query.trim().toLocaleLowerCase("ru");
+  const sourceParticipants = getParticipantsListSource();
   const participants = query
-    ? state.participants.filter((participant) => getParticipantSearchText(participant).includes(query))
-    : [...state.participants];
+    ? sourceParticipants.filter((participant) => getParticipantSearchText(participant).includes(query))
+    : [...sourceParticipants];
   return participants.sort((left, right) => {
     const result = compareParticipants(left, right, state.participantFilters.sortBy);
     return state.participantFilters.direction === "asc" ? result : -result;
@@ -1678,6 +1711,7 @@ function init() {
   $$("[data-page]").forEach((button) => button.classList.toggle("active", button.dataset.page === "home"));
   setInterval(updateCountdown, 1000);
   renderParticipants();
+  loadPublicParticipants(false);
   if (location.pathname === "/login") openLogin("Войдите через Google, чтобы открыть защищенный раздел.");
 }
 
