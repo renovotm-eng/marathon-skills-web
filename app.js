@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -559,7 +559,7 @@ function setAiBusy(isBusy) {
   });
 }
 
-function openAiWidget() {
+function openAssistantWidget() {
   state.aiWidgetOpen = true;
   $("#ai-widget").classList.remove("hidden");
   $("#ai-fab").classList.add("active");
@@ -576,7 +576,7 @@ function closeAiWidget() {
 }
 
 function toggleAiWidget() {
-  state.aiWidgetOpen ? closeAiWidget() : openAiWidget();
+  state.aiWidgetOpen ? closeAiWidget() : openAssistantWidget();
 }
 
 function collectAiHistory() {
@@ -1570,7 +1570,7 @@ function setupEvents() {
   $("#ai-page-form").addEventListener("submit", (event) => handleAiSubmit(event, "#ai-page-input"));
   $("#ai-widget-form").addEventListener("submit", (event) => handleAiSubmit(event, "#ai-widget-input"));
   $$("[data-ai-question]").forEach((button) => button.addEventListener("click", () => {
-    if (getActivePageName() !== "assistant") openAiWidget();
+    if (getActivePageName() !== "assistant") openAssistantWidget();
     submitAiQuestion(button.dataset.aiQuestion || button.textContent);
   }));
   $("#login-button").addEventListener("click", () => openLogin());
